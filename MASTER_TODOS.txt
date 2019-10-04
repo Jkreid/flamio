@@ -2,8 +2,8 @@ MASTER LIST OF POSSIBLE TO-DOS
 
 HIGHER-PRI
 * Setup a testing environment
-* Reformat existing code to fit into file structure
-* Configure repo to require Pull Request approvals 
+* Reformat existing code to fit into file structure --In progress -Justin
+* Configure repo to require Pull Request approvals -- Done -Justin
 
 LOWER-PRI
 * Setup a linter
