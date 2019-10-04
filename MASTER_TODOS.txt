@@ -1,0 +1,16 @@
+MASTER LIST OF POSSIBLE TO-DOS 
+
+HIGHER-PRI
+* Setup a testing environment
+* Reformat existing code to fit into file structure
+* Configure repo to require Pull Request approvals 
+
+LOWER-PRI
+* Setup a linter
+
+LONGER-TERM 
+* Get setup on AWS
+
+
+POSSIBLE 
+? Setup a wiki
