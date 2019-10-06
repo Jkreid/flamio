@@ -18,7 +18,9 @@ SCOPES='streaming \
         user-read-playback-state \
         user-modify-playback-state \
         user-read-currently-playing'
-
+#==============================================================================
+# REMOVE ALL HASHES AS THEY ARE INCONSISTENT
+#==============================================================================
 class User:
     
     def __init__(self, 
@@ -28,12 +30,12 @@ class User:
         """ Initialize new user instance w/ username and password """
         self.un=spotify_username
         # request new password in None given
-        app_pw = app_password or hash(input('passowrd: '))
-        pw_confirm = (confirm_password if app_password else None) or hash(input('confirm password: '))
+        app_pw = app_password or input('passowrd: ')
+        pw_confirm = (confirm_password if app_password else None) or input('confirm password: ')
         while app_pw != pw_confirm:
             print('passwords do not match\n')
-            app_pw = hash(input('passowrd: '))
-            pw_confirm = hash(input('confirm password: '))
+            app_pw =input('passowrd: ')
+            pw_confirm = input('confirm password: ')
         self.pw = app_pw
         # refresh user token and record login/last use time
         self.token_reqs = {'username':spotify_username,
@@ -42,18 +44,18 @@ class User:
                            'client_secret':SECRET,
                            'redirect_uri':REDIRECT}
         self.login_time = t.time()
-        self.token = spotipy.util.promt_for_user_token(**self.token_reqs)
+        self.token = spotipy.util.prompt_for_user_token(**self.token_reqs)
         self.spotify = spotipy.Spotify(auth=self.token)
         self.STAY_LOGGED_IN = True
         self.last_used = t.time()
-        if not os.path.exists('../../data/users/{}.dat'.format(spotify_username)):
-            with open('../../data/users/{}.dat'.format(spotify_username), 'w') as user_data:
+        if not os.path.exists('../data/users/{}.dat'.format(spotify_username)):
+            with open('../data/users/{}.dat'.format(spotify_username), 'w') as user_data:
                 user_data.write('un:{}\npw:{}'.format(spotify_username,self.pw))
             
     
     def STAY_LOGGED_IN(self, state):
         """ Change auto login status """
-        if hash(input('password: ')) == self.pw:
+        if input('password: ') == self.pw:
             self.STAY_LOGGED_IN = bool(state)
             self.last_used = t.time()
         else:
@@ -65,14 +67,14 @@ class User:
         if t.time() - self.login_time > 3600:
             # request login if needed
             autologin = self.STAY_LOGGED_IN or (t.time() - self.last_used < 3600)
-            attempt = self.pw if autologin else hash(input('password: '))
+            attempt = self.pw if autologin else input('password: ')
             while attempt != self.pw:
                 if input('passwords do not match, retry? (y/n): ')[0].lower() == 'y':
-                    attempt = hash(input('password: '))
+                    attempt = input('password: ')
                 else:
                     return False # token expired and user locked out
             self.login_time = t.time()
-            self.token = spotipy.util.promt_for_user_token(**self.token_reqs)
+            self.token = spotipy.util.prompt_for_user_token(**self.token_reqs)
             self.spotify = spotipy.Spotify(auth=self.token)
         return True # token not expired
     
@@ -80,8 +82,8 @@ class User:
     def request(self, action, **kwargs):
         """ Call a service request with username and spotipy object"""
         if self.status():
-            action(self, **kwargs)
             self.last_used = t.time()
+            return action(self.spotify, **kwargs)
 
 
 
@@ -92,13 +94,13 @@ def new_user(username, password=None, confirm=None):
 
 def load_user(username, password):
     """ Load user object from saved data """
-    if os.path.exists('../../data/users/{}.dat'.format(username)):
-        with open('../../data/users/{}.dat'.format(username), 'r') as user:
-            un,pw = user.readlines()
-        attempt = hash(password)
+    if os.path.exists('../data/users/{}.dat'.format(username)):
+        with open('../data/users/{}.dat'.format(username), 'r') as user:
+            un,pw = map(lambda x: x[3:], user.readlines())
+        attempt = password
         while attempt != pw:
             if input('passwords do not match, retry? (y/n) ')[0].lower() == 'y':
-                attempt = hash(input('password: '))
+                attempt = input('password: ')
             else:
                 print('failed login')
                 return False # token expired and user locked out
