@@ -9,6 +9,7 @@ Flamio - User
 
 import os
 import spotipy
+import spotipy.util as util
 import time as t
 
 APP_ID='cd33a00276a645f393445c438115b958'
@@ -42,7 +43,7 @@ class User:
                            'client_secret':SECRET,
                            'redirect_uri':REDIRECT}
         self.login_time = t.time()
-        self.token = spotipy.util.promt_for_user_token(**self.token_reqs)
+        self.token = util.promt_for_user_token(**self.token_reqs)
         self.spotify = spotipy.Spotify(auth=self.token)
         self.STAY_LOGGED_IN = True
         self.last_used = t.time()
@@ -72,7 +73,7 @@ class User:
                 else:
                     return False # token expired and user locked out
             self.login_time = t.time()
-            self.token = spotipy.util.promt_for_user_token(**self.token_reqs)
+            self.token = util.promt_for_user_token(**self.token_reqs)
             self.spotify = spotipy.Spotify(auth=self.token)
         return True # token not expired
     

@@ -14,24 +14,28 @@ def select_from_search(spotify, query, field='track', limit=10, offset=0):
                    'artist':search_artist,
                    'playlist':search_playlist}
     results = search_type[field](spotify, query, limit=limit, offset=offset, void=False)
-    selection = input('result number, (next/last) to change result page, or quit: ')
+    selection = input('\nresult number, (next/last) to change result page, or quit: ')
     if len(results) > 0:
         try:
             selection_id = results[int(selection)-1]['id']
         except:
             if selection == 'next':
-                selection_id = select_from_search(spotify, query, field=field, lmit=limit, offsest=offset+limit)
+                print('\n')
+                selection_id = select_from_search(spotify, query, field=field, limit=limit, offset=offset+limit)
             elif selection == 'back':
+                print('\n')
                 if offset >= limit:
-                    selection_id = select_from_search(spotify, query, field=field, limit, offsest=offset-limit)
+                    selection_id = select_from_search(spotify, query, field=field, limit=limit, offset=offset-limit)
                 else:
                     selection_id = select_from_search(spotify, query, field=field, limit=limit)
             else:
+                print('\n')
                 print('no selection made')
                 return False
         return selection_id
     else:
         if not offset:
+            print('\n')
             print('no results')
             return False
         else:
@@ -58,7 +62,7 @@ def search_album(spotify, query, limit=10, offset=0, void=True):
     results = spotify.search(query, limit=limit, offset=offset, type='album')['albums']['items']
     for i,result in enumerate(results):
         name = result['name']
-        artists = [artist['name'] for artist in result['artist']]
+        artists = [artist['name'] for artist in result['artists']]
         print('{}. {} {}'.format(i+1, name, '/'.join(artists)))
     if not void:
         return results
@@ -102,7 +106,7 @@ def select_device(spotify, selection=None, asked_for_current_device=False):
     if not selection:
         if not asked_for_current_device:
             if spotify.current_playback:
-                if input('play currently selected device? (y/n): ' )[0].lower() == 'y':
+                if input('use currently selected device? (y/n): ' )[0].lower() == 'y':
                     return spotify.current_playback()['device']['id']
                 else:
                     pass
