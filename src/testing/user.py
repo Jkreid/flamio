@@ -18,9 +18,7 @@ SCOPES='streaming \
         user-read-playback-state \
         user-modify-playback-state \
         user-read-currently-playing'
-#==============================================================================
-# REMOVE ALL HASHES AS THEY ARE INCONSISTENT
-#==============================================================================
+
 class User:
     
     def __init__(self, 
@@ -77,6 +75,11 @@ class User:
             self.token = spotipy.util.prompt_for_user_token(**self.token_reqs)
             self.spotify = spotipy.Spotify(auth=self.token)
         return True # token not expired
+    
+    
+    def sp(self):
+        self.status()
+        return self.spotify
     
     
     def request(self, action, **kwargs):

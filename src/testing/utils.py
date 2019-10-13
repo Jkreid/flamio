@@ -57,7 +57,7 @@ def search_track(spotify, query=' ', limit=10, offset=0,void=True):
         explicit = result['explicit']
         popularity = result['popularity']
         identifiers = [i+1,name, '/'.join(artists), '[explicit]' if explicit else '', album, popularity]
-        print('{}. {} {} {} {} {}'.format(*identifiers)) #format nicer
+        print('{}. {} | {} | {} | {} | {}'.format(*identifiers)) #format nicer
     if not void:
         return results
 
@@ -68,7 +68,7 @@ def search_album(spotify, query=' ', limit=10, offset=0, void=True):
     for i,result in enumerate(results):
         name = result['name']
         artists = [artist['name'] for artist in result['artists']]
-        print('{}. {} {}'.format(i+1, name, '/'.join(artists)))
+        print('{}. {} | {}'.format(i+1, name, '/'.join(artists)))
     if not void:
         return results
 
@@ -80,7 +80,7 @@ def search_artist(spotify, query=' ', limit=10, offset=0, void=True):
         name = result['name']
         popularity = result['popularity']
         genres = result['genres']
-        print('{}. {} {} {}'.format(i+1, name, popularity, '/'.join(genres)))
+        print('{}. {} | {} | {}'.format(i+1, name, popularity, '/'.join(genres)))
     if not void:
         return results
 
@@ -91,7 +91,7 @@ def search_playlist(spotify, query=' ', limit=10, offset=0, void=True):
     for i,result in enumerate(results):
         name = result['name']
         owner = result['owner']['display_name']
-        print('{}. {} {}'.format(i+1, name, owner))
+        print('{}. {} | {}'.format(i+1, name, owner))
     if not void:
         return results
 
@@ -129,5 +129,5 @@ def select_device(spotify, selection=None, asked_for_current_device=False):
                 return select_device(spotify,selection=None,asked_for_current_device=True)
             else:
                 print('did not select valid device')
-                raise ValueError
+                return None
             
