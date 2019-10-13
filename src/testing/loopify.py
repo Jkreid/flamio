@@ -36,7 +36,7 @@ def load_data(spotify, include=True, data=None):
     if data:
         return data, data_path
     elif os.path.exists(data_path):
-        return pd.read_excel(data_path), data_path
+        return pd.read_excel(data_path,index_col=0,header=0), data_path
     else:
         print('no stored {}'.format(action))
         return None,None
@@ -80,7 +80,7 @@ def select_stored(spotify, data, field, field_id=None):
             return
 
 
-def add(spotify, start=None, end=None, song_id=None, include=True, name=None):
+def add(spotify, start=None, end=None, song_id=None, include=True, name=None, data=None):
     un = utils.username(spotify)
     action = 'loops' if include else 'skips'
     data_path = '../data/{}/{}.xlsx'.format(action, un)
@@ -90,10 +90,7 @@ def add(spotify, start=None, end=None, song_id=None, include=True, name=None):
     end = end if end else ms_to_time(spotify.track(song_id)['duration_ms'])
     time_range = '{}-{}'.format(start,end)
     name = name or time_range
-    if os.path.exists(data_path):
-        data = pd.read_excel(data_path)
-    else:
-        data = pd.DataFrame()
+    data = pd.read_excel(data_path,index_col=0,header=0) if os.path.exists(data_path) else pd.DataFrame()
     data.loc[song_id,name] = time_range
     data.to_excel(data_path)
 
