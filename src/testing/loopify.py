@@ -7,16 +7,15 @@ Created on Sat Oct  5 12:25:05 2019
 Flamio - Loopify
 """
 
-import os
 import utils
 #import time as t
-import pandas as pd
 
 #==============================================================================
 # Loops & Skips
 #==============================================================================
 
 def time_to_ms(time):
+    """ '0:00' to milisecond """
     if type(time) is int:
         return time
     minute,seconds = map(float,time.split(':'))
@@ -24,124 +23,122 @@ def time_to_ms(time):
 
 
 def ms_to_time(ms):
+    """ milisecond to '0:00' """
     ms = int(ms)
     minute,seconds = int(ms/60000), round((ms/1000)%60,3)
     return ':'.join(map(str,(minute,seconds)))
 
-
-def load_data(spotify, include=True, data=None):
-    un = utils.username(spotify)
+    
+def select_element(user, 
+                   song_id, 
+                   name, 
+                   include):
+    # make function to take in these objects and based on them and user data, return 
     action = 'loops' if include else 'skips'
-    data_path = '../data/{}/{}.xlsx'.format(action, un)
-    if data:
-        return data, data_path
-    elif os.path.exists(data_path):
-        return pd.read_excel(data_path,index_col=0,header=0), data_path
-    else:
-        print('no stored {}'.format(action))
-        return None,None
-    
-    
-def select_stored(spotify, data, field, field_id=None):
-    if field == 'song' and field_id in data.index:
-        return field_id
-    elif field == 'name' and field_id in data.columns:
-        return field_id
-    else:
-        console_prompt = '{} not in stored {}s. select from stored? (y/n) '.format(field,field)
-        select_from_stored = input(console_prompt).lower()[0] == 'y'
+    if song_id not in user.data[action].keys():
+        select_from_stored=input('song not found in stored songs,\
+                                 select from stored songs? (y/n) ')[0].lower()=='y'
         if select_from_stored:
-            
-            if field == 'name':
-                for i,stored_name in enumerate(data.columns):
-                    print('{}. {}'.format(i+1,stored_name))
-            
-            elif field == 'song':
-                tracks = spotify.tracks(data.index)['tracks']
-                for i,track in enumerate(tracks):
-                    stored_name = track['name']
-                    stored_artist = '/'.join([artist['name'] for artist in track['artists']])
-                    explicit = ' | [explicit]' if track['explicit'] else ''
-                    print('{}. {} | {}{}'.format(i+1,stored_name,stored_artist,explicit))
-            
-            selection = input('option number: ')
+            tracks = user.sp().tracks(user.data[action].keys())['tracks']
+            for i,track in enumerate(tracks):
+                stored_name = track['name']
+                stored_artist = '/'.join([artist['name'] for artist in track['artists']])
+                explicit = ' | [explicit]' if track['explicit'] else ''
+                print('{}. {} | {}{}'.format(i+1,stored_name,stored_artist,explicit))
             try:
-                if field == 'name':
-                    return data.columns[int(selection)-1]
-                elif field == 'song':
-                    return data.index[int(selection)-1]
-                else:
-                    return
+                selection = int(input('song number: ')) - 1
+                song_id = list(user.data[action].keys())[selection]
             except:
-                print('no selection made')
-                return
+                song_id = None
         else:
-            print('no selection made')
-            return
+            song_id = None
+    if song_id:
+        if name not in user.data[action][song_id].keys():
+            select_from_stored=input('name not found in stored names for the selected song,\
+                                     select from stored songs? (y/n) ')[0].lower()=='y'
+            if select_from_stored:
+                for i,stored_name in enumerate(user.data[action][song_id].keys()):
+                    print('{}. {}'.format(i+1,stored_name))
+                try:
+                    selection = int(input('name number: ')) - 1
+                    name =  list(user.data[action][song_id].keys())[selection]
+                except:
+                    name = None
+            else:
+                name = None
+    if (not song_id and name):
+        song = user.sp().track(song_id)['name'] if song_id else '[NONE]'
+        print('no element found in {} for song: {} with name: {}'.format(action,song,name))
+    return song_id, name, action
 
 
-def add(spotify, start=None, end=None, song_id=None, include=True, name=None, data=None):
-    un = utils.username(spotify)
+def add(user, 
+        start=None, 
+        end=None, 
+        song_id=None, 
+        name=None, 
+        include=True):
+    """ add loop or skip to saved options """
+    if not song_id:
+        query=input('enter song for search: ')
+        song_id = utils.select_from_search(user.sp(), query=query)
     action = 'loops' if include else 'skips'
-    data_path = '../data/{}/{}.xlsx'.format(action, un)
-    song_id = song_id or utils.select_from_search(spotify, 
-                                                  query=(input('enter song for search: ')))
     start = start if start else '0:00'
-    end = end if end else ms_to_time(spotify.track(song_id)['duration_ms'])
+    end = end if end else ms_to_time(user.sp().track(song_id)['duration_ms'])
     time_range = '{}-{}'.format(start,end)
     name = name or time_range
-    data = pd.read_excel(data_path,index_col=0,header=0) if os.path.exists(data_path) else pd.DataFrame()
-    data.loc[song_id,name] = time_range
-    data.to_excel(data_path)
+    if song_id not in user.data[action].keys():
+        user.data[action][song_id] = {}
+    user.data[action][song_id][name] = time_range
+    user.save_data()
 
 
-def edit(spotify, name=None, new_start=None, new_end=None, song_id=None, include=True, data=None):
+def edit(user, 
+         song_id=None, 
+         name=None, 
+         new_start=None, 
+         new_end=None, 
+         include=True):
+    """ edit existing loop or skip """
     if new_start or new_end:
-        data,data_path = load_data(spotify, include, data)
-        if type(data) is None:
+        song_id,name,action = select_element(user, song_id, name, include)
+        if not (song_id and name):
             return
-        name = select_stored(spotify, data, 'name', name)
-        if not name:
-            return
-        song_id = select_stored(spotify, data, 'song', song_id)
-        print(song_id)
-        if not song_id:
-            return
-        old_start,old_end = data.loc[song_id,name].split('-')
+        old_start,old_end = user.data[action][song_id][name].split('-')
         start = new_start or old_start
         end = new_end or old_end
-        data.loc[song_id,name] = '{}-{}'.format(start,end)
-        data.to_excel(data_path)
+        user.data[action][song_id][name] = '{}-{}'.format(start,end)
+        user.save_data()
         
 
-def view(spotify, song_id=None, name=None, include=True, data=None):
-    data = load_data(spotify, include, data)[0]
-    if not (name or song_id):
-        print(data)
-    elif not name:
-        print(data.loc[song_id,:])
-    elif not song_id:
-        print(data.loc[:,name])
+def view(user, 
+         song_id=None, 
+         name=None, 
+         include=True):
+    """ view stored loops or skips, filtered by song and name """
+    song_id,name,action = select_element(user, song_id, name, include)
+    if song_id not in user.data[action].keys():
+        print(user.data[action])
+    elif name not in user.data[action][song_id].keys():
+        print(user.data[action][song_id])
     else:
-        print(data.loc[song_id,name])
+        print(user.data[action][song_id][name])
 
 
-def play(spotify, song_id=None, name=None, device=None, reps=1, persist=True, include=True, data=None):
-    data,_ = load_data(spotify, include, data)
-    if type(data) is None:
+def play(user, 
+         song_id=None, 
+         name=None, 
+         device=None, 
+         reps=1, 
+         persist=True, 
+         include=True):
+    """ play existing loop or skip """
+    song_id,name,action = select_element(user, song_id, name, include)
+    if not (song_id and name):
         return
-    name = select_stored(spotify, data, 'name', name)
-    if not name:
-        return
-    filtered_data = data.loc[:,name][data.loc[:,name].notnull()]
-    if len(filtered_data) == 1:
-        song_id = filtered_data.index[0]
-    song_id = select_stored(spotify, filtered_data, 'song', song_id)
-    if not song_id:
-        return
-    times = data.loc[song_id,name].split('-')
+    times = user.data[action][song_id][name].split('-')
     start_ms,end_ms = map(time_to_ms, times)
-    device = device or utils.select_device(spotify)
+    device = device or utils.select_device(user.sp())
     uri = ['https://open.spotify.com/track/'+song_id]
         
     def inLoop(playback, t1, t2, include):
@@ -152,30 +149,38 @@ def play(spotify, song_id=None, name=None, device=None, reps=1, persist=True, in
         playback = spotify.current_playback()
         if playback:
             if playback['item']['id'] == song_id:
-                if playback['is_playing'] or (persist and inLoop(playback,t1,t2,include)):
+                if playback['is_playing'] or (persist and inLoop(playback,
+                                                                 t1,t2,
+                                                                 include)):
                     return playback
-                    
-    playback = spotify.current_playback()
+    
+    print('playing {} - {}'.format(name,user.sp().track(song_id)['name']))                
+    playback = user.sp().current_playback()
     if playback:
         if (not playback['is_playing']) or (playback['item']['id'] != song_id):
-            spotify.start_playback(device_id=device, uris=uri)
-        spotify.repeat(playback['repeat_state'])
+            user.sp().start_playback(device_id=device, uris=uri)
+        user.sp().repeat(playback['repeat_state'])
     else:
-        spotify.start_playback(device_id=device, uris=uri)
-        playback = spotify.current_playback()
+        user.sp().start_playback(device_id=device, uris=uri)
+        playback = user.sp().current_playback()
 
     i=0
     while playback and (i < reps or playback['repeat_state'] == 'track'):
-        if not inLoop(spotify.current_playback(), start_ms, end_ms, include):
-            spotify.seek_track(start_ms if include else end_ms)
-        while inLoop(spotify.current_playback(), start_ms, end_ms, include):
-            playback = validPlayback(spotify, start_ms, end_ms, song_id, persist, include)
+        if not inLoop(user.sp().current_playback(), start_ms, end_ms, include):
+            user.sp().seek_track(start_ms if include else end_ms)
+        while inLoop(user.sp().current_playback(), start_ms, end_ms, include):
+            playback = validPlayback(user.sp(), 
+                                     start_ms, 
+                                     end_ms, 
+                                     song_id, 
+                                     persist, 
+                                     include)
             if not playback:
                 break
         i+=1
         
-    if spotify.current_playback()['is_playing']:
-        spotify.pause_playback()
+    if user.sp().current_playback()['is_playing']:
+        user.sp().pause_playback()
 
 
 #==============================================================================
