@@ -16,6 +16,7 @@ import utils
 
 def time_to_ms(time):
     """ '0:00' to milisecond """
+    
     if type(time) is int:
         return time
     minute,seconds = map(float,time.split(':'))
@@ -24,6 +25,7 @@ def time_to_ms(time):
 
 def ms_to_time(ms):
     """ milisecond to '0:00' """
+    
     ms = int(ms)
     minute,seconds = int(ms/60000), round((ms/1000)%60,3)
     return ':'.join(map(str,(minute,seconds)))
@@ -33,38 +35,29 @@ def select_element(user,
                    song_id, 
                    name, 
                    include):
-    # make function to take in these objects and based on them and user data, return 
+    """ select element of loop or skip if one exist, from a song id and name """
+    
     action = 'loops' if include else 'skips'
     if song_id not in user.data[action].keys():
-        select_from_stored=input('song not found in stored songs,\
-                                 select from stored songs? (y/n) ')[0].lower()=='y'
-        if select_from_stored:
-            tracks = user.sp().tracks(user.data[action].keys())['tracks']
-            for i,track in enumerate(tracks):
-                stored_name = track['name']
-                stored_artist = '/'.join([artist['name'] for artist in track['artists']])
-                explicit = ' | [explicit]' if track['explicit'] else ''
-                print('{}. {} | {}{}'.format(i+1,stored_name,stored_artist,explicit))
-            try:
-                selection = int(input('song number: ')) - 1
-                song_id = list(user.data[action].keys())[selection]
-            except:
-                song_id = None
-        else:
+        tracks = user.sp().tracks(user.data[action].keys())['tracks']
+        for i,track in enumerate(tracks):
+            stored_name = track['name']
+            stored_artist = '/'.join([artist['name'] for artist in track['artists']])
+            explicit = ' | [explicit]' if track['explicit'] else ''
+            print('{}. {} | {}{}'.format(i+1,stored_name,stored_artist,explicit))
+        try:
+            selection = int(input('song number: ')) - 1
+            song_id = list(user.data[action].keys())[selection]
+        except:
             song_id = None
     if song_id:
         if name not in user.data[action][song_id].keys():
-            select_from_stored=input('name not found in stored names for the selected song,\
-                                     select from stored songs? (y/n) ')[0].lower()=='y'
-            if select_from_stored:
-                for i,stored_name in enumerate(user.data[action][song_id].keys()):
-                    print('{}. {}'.format(i+1,stored_name))
-                try:
-                    selection = int(input('name number: ')) - 1
-                    name =  list(user.data[action][song_id].keys())[selection]
-                except:
-                    name = None
-            else:
+            for i,stored_name in enumerate(user.data[action][song_id].keys()):
+                print('{}. {}'.format(i+1,stored_name))
+            try:
+                selection = int(input('name number: ')) - 1
+                name =  list(user.data[action][song_id].keys())[selection]
+            except:
                 name = None
     if (not song_id and name):
         song = user.sp().track(song_id)['name'] if song_id else '[NONE]'
@@ -79,6 +72,7 @@ def add(user,
         name=None, 
         include=True):
     """ add loop or skip to saved options """
+    
     if not song_id:
         query=input('enter song for search: ')
         song_id = utils.select_from_search(user.sp(), query=query)
@@ -100,6 +94,7 @@ def edit(user,
          new_end=None, 
          include=True):
     """ edit existing loop or skip """
+    
     if new_start or new_end:
         song_id,name,action = select_element(user, song_id, name, include)
         if not (song_id and name):
@@ -116,6 +111,7 @@ def view(user,
          name=None, 
          include=True):
     """ view stored loops or skips, filtered by song and name """
+    
     song_id,name,action = select_element(user, song_id, name, include)
     if song_id not in user.data[action].keys():
         print(user.data[action])
@@ -129,18 +125,11 @@ def play(user,
          song_id=None, 
          name=None, 
          device=None, 
-         reps=1, 
-         persist=True, 
-         include=True):
+         reps=1,  
+         include=True,
+         repeat=False):
     """ play existing loop or skip """
-    song_id,name,action = select_element(user, song_id, name, include)
-    if not (song_id and name):
-        return
-    times = user.data[action][song_id][name].split('-')
-    start_ms,end_ms = map(time_to_ms, times)
-    device = device or utils.select_device(user.sp())
-    uri = ['https://open.spotify.com/track/'+song_id]
-        
+    
     def inLoop(playback, t1, t2, include):
         if playback:
             return (t1 <= playback['progress_ms'] < t2) == include
@@ -148,39 +137,57 @@ def play(user,
     def validPlayback(spotify, t1, t2, song_id, persist, include):
         playback = spotify.current_playback()
         if playback:
-            if playback['item']['id'] == song_id:
-                if playback['is_playing'] or (persist and inLoop(playback,
-                                                                 t1,t2,
-                                                                 include)):
-                    return playback
+            if playback['item']:
+                if playback['item']['id'] == song_id:
+                    if playback['is_playing'] or (persist and inLoop(playback,
+                                                                     t1,t2,
+                                                                     include)):
+                        return playback
     
-    print('playing {} - {}'.format(name,user.sp().track(song_id)['name']))                
-    playback = user.sp().current_playback()
-    if playback:
-        if (not playback['is_playing']) or (playback['item']['id'] != song_id):
+    song_id,name,action = select_element(user, song_id, name, include)
+    if not (song_id and name):
+        return
+    times = user.data[action][song_id][name].split('-')
+    start_ms,end_ms = map(time_to_ms, times)
+    device = device or utils.select_device(user.sp())
+    uri = ['https://open.spotify.com/track/'+song_id]
+    print('playing: {} - {}'.format(name,user.sp().track(song_id)['name']))                
+    pb = user.sp().current_playback()
+    if pb:
+        repeat = 'track' if repeat else pb['repeat_state']
+        if (not pb['is_playing']) or (pb['item']['id'] != song_id):
             user.sp().start_playback(device_id=device, uris=uri)
-        user.sp().repeat(playback['repeat_state'])
     else:
         user.sp().start_playback(device_id=device, uris=uri)
-        playback = user.sp().current_playback()
-
+        pb = user.sp().current_playback()
+        repeat = 'track' if repeat else pb['repeat_state']
+    user.sp().repeat(repeat)
+    
     i=0
-    while playback and (i < reps or playback['repeat_state'] == 'track'):
+    while pb and (i < reps or pb['repeat_state'] == 'track'):
         if not inLoop(user.sp().current_playback(), start_ms, end_ms, include):
             user.sp().seek_track(start_ms if include else end_ms)
         while inLoop(user.sp().current_playback(), start_ms, end_ms, include):
-            playback = validPlayback(user.sp(), 
+            if not validPlayback(user.sp(), 
                                      start_ms, 
                                      end_ms, 
                                      song_id, 
-                                     persist, 
-                                     include)
-            if not playback:
-                break
+                                     user.persist_through_pause, 
+                                     include): break
+        pb = validPlayback(user.sp(), 
+                           start_ms, 
+                           end_ms, 
+                           song_id, 
+                           user.persist_through_pause, 
+                           include)
         i+=1
-        
-    if user.sp().current_playback()['is_playing']:
-        user.sp().pause_playback()
+    
+    pb = user.sp().current_playback()
+    if pb:
+        if pb['is_playing']:
+            if pb['item']:
+                if pb['item']['id'] == song_id:
+                    user.sp().pause_playback()
 
 
 #==============================================================================
@@ -189,8 +196,9 @@ def play(user,
 
 class Mix:
     
-    def __init__(self):
-        pass
+    def __init__(self,user,name=None):
+        self.name=name
+        
     
     def all_the_mix_methods():
         pass

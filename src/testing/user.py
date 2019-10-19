@@ -26,7 +26,8 @@ class User:
                  spotify_username, 
                  app_password=None, 
                  confirm_password=None,
-                 user_data=None):
+                 user_data=None,
+                 persist=False):
         """ Initialize new user instance w/ username and password """
         self.un=spotify_username
         # request new password in None given
@@ -47,14 +48,16 @@ class User:
         self.token = spotipy.util.prompt_for_user_token(**self.token_reqs)
         self.spotify = spotipy.Spotify(auth=self.token)
         self.STAY_LOGGED_IN = True
+        self.persist_through_pause = user_data['persist'] if user_data else persist
         self.data = user_data or {'name':spotify_username, 
                              'pw':self.pw,
                              'tlogin':self.login_time, 
+                             'persist':self.persist_through_pause,
                              'loops':{}, 
                              'skips':{}, 
                              'mixes':{}
                              }
-        self.data_path = '../data/{}'.format(spotify_username)
+        self.data_path = '../data/{}.json'.format(spotify_username)
         self.save_data()
                            
     
@@ -105,14 +108,14 @@ class User:
 
 
 
-def new_user(username, password=None, confirm=None):
+def new_user(username, password=None, confirm=None, persist=False):
     """ Create new user object """
-    return User(username, password, confirm)
+    return User(username, app_password=password, confirm_password=confirm, persist=persist)
 
 
 def load_user(username, password):
     """ Load user object from saved data """
-    data_path = '../data/{}'.format(username)
+    data_path = '../data/{}.json'.format(username)
     if os.path.exists(data_path):
         with open(data_path) as d:
             data = json.load(d)
