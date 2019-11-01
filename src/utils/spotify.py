@@ -12,6 +12,54 @@ def username(spotify):
     return spotify.me()['id']
 
 
+def select_element(user, 
+                   song_id=None, 
+                   name=None, 
+                   element_field=None):
+    """ select element of loop or skip if one exist, from a song id and name """
+    if element_field == 'playlists':
+        if name not in user.data['playlist'].keys():
+            for i,playlist in enumerate(user.data['playlists'].keys()):
+                print('{}. {}'.format(i+1, playlist))
+            selection = input('playlist number or name')
+            try:
+                name = user.data['playlists'].keys()[int(selection)-1]
+            except:
+                if selection in user.data['playlists'].keys():
+                    name = selection
+                else:
+                    name = None
+        return name
+    else:
+        if song_id not in user.data[element_field].keys():
+            tracks = user.sp().tracks(user.data[element_field].keys())['tracks']
+            for i,track in enumerate(tracks):
+                stored_name = track['name']
+                stored_artist = '/'.join([artist['name'] for artist in track['artists']])
+                explicit = ' | [explicit]' if track['explicit'] else ''
+                print('{}. {} | {}{}'.format(i+1,stored_name,stored_artist,explicit))
+            try:
+                selection = int(input('song number: ')) - 1
+                song_id = list(user.data[element_field].keys())[selection]
+            except:
+                song_id = None
+        if song_id:
+            if name == 'FULLSONG' and element_field == 'loops':
+                pass
+            elif name not in user.data[element_field][song_id].keys():
+                for i,stored_name in enumerate(user.data[element_field][song_id].keys()):
+                    print('{}. {}'.format(i+1,stored_name))
+                try:
+                    selection = int(input('name number: ')) - 1
+                    name =  list(user.data[element_field][song_id].keys())[selection]
+                except:
+                    name = None
+        if (not song_id and name):
+            song = user.sp().track(song_id)['name'] if song_id else '[NONE]'
+            print('no element found in {} for song: {} with name: {}'.format(element_field,song,name))
+        return song_id, name
+
+
 def select_from_search(spotify, query=' ', field='track', limit=10, offset=0):
     """ Get item id from user query """
     search_type = {'track':search_track,
@@ -57,7 +105,7 @@ def search_track(spotify, query=' ', limit=10, offset=0,void=True):
         explicit = result['explicit']
         popularity = result['popularity']
         identifiers = [i+1,name, '/'.join(artists), '[explicit]' if explicit else '', album, popularity]
-        print('{}. {} {} {} {} {}'.format(*identifiers)) #format nicer
+        print('{}. {} | {} | {} | {} | {}'.format(*identifiers)) #format nicer
     if not void:
         return results
 
@@ -68,7 +116,7 @@ def search_album(spotify, query=' ', limit=10, offset=0, void=True):
     for i,result in enumerate(results):
         name = result['name']
         artists = [artist['name'] for artist in result['artists']]
-        print('{}. {} {}'.format(i+1, name, '/'.join(artists)))
+        print('{}. {} | {}'.format(i+1, name, '/'.join(artists)))
     if not void:
         return results
 
@@ -80,7 +128,7 @@ def search_artist(spotify, query=' ', limit=10, offset=0, void=True):
         name = result['name']
         popularity = result['popularity']
         genres = result['genres']
-        print('{}. {} {} {}'.format(i+1, name, popularity, '/'.join(genres)))
+        print('{}. {} | {} | {}'.format(i+1, name, popularity, '/'.join(genres)))
     if not void:
         return results
 
@@ -91,7 +139,7 @@ def search_playlist(spotify, query=' ', limit=10, offset=0, void=True):
     for i,result in enumerate(results):
         name = result['name']
         owner = result['owner']['display_name']
-        print('{}. {} {}'.format(i+1, name, owner))
+        print('{}. {} | {}'.format(i+1, name, owner))
     if not void:
         return results
 
@@ -110,9 +158,11 @@ def select_device(spotify, selection=None, asked_for_current_device=False):
     """ Get device id from user selection """
     if not selection:
         if not asked_for_current_device:
-            if spotify.current_playback():
-                if input('use currently selected device? (y/n): ' )[0].lower() == 'y':
-                    return spotify.current_playback()['device']['id']
+            pb = spotify.current_playback()
+            if pb:
+                select_current = input('use currently selected device? (y/n): ' )[0].lower() == 'y'
+                if select_current:
+                    return pb['device']['id']
                 else:
                     pass
         devices = view_devices(spotify,void=False)
@@ -125,9 +175,10 @@ def select_device(spotify, selection=None, asked_for_current_device=False):
             device_id = {devices[i]['name']:devices[i]['id'] for i in range(len(devices))}[selection]
             return device_id
         except:
-            if input('retry? (y/n): ')[0].lower() == 'y':
+            retry = input('retry? (y/n): ')[0].lower() == 'y'
+            if retry:
                 return select_device(spotify,selection=None,asked_for_current_device=True)
             else:
                 print('did not select valid device')
-                raise ValueError
+                return None
             

@@ -8,15 +8,15 @@ Flamio - Loopify
 """
 
 import utils
-#import time as t
+import time as t
 
 #==============================================================================
-# Loops & Skips
+# Loop & Skip Functions
 #==============================================================================
-
+#make loopify just the playing function that can play anything pretty much
+#put loops and skips in seperate module
 def time_to_ms(time):
     """ '0:00' to milisecond """
-    
     if type(time) is int:
         return time
     minute,seconds = map(float,time.split(':'))
@@ -25,44 +25,9 @@ def time_to_ms(time):
 
 def ms_to_time(ms):
     """ milisecond to '0:00' """
-    
     ms = int(ms)
     minute,seconds = int(ms/60000), round((ms/1000)%60,3)
     return ':'.join(map(str,(minute,seconds)))
-
-    
-def select_element(user, 
-                   song_id, 
-                   name, 
-                   include):
-    """ select element of loop or skip if one exist, from a song id and name """
-    
-    action = 'loops' if include else 'skips'
-    if song_id not in user.data[action].keys():
-        tracks = user.sp().tracks(user.data[action].keys())['tracks']
-        for i,track in enumerate(tracks):
-            stored_name = track['name']
-            stored_artist = '/'.join([artist['name'] for artist in track['artists']])
-            explicit = ' | [explicit]' if track['explicit'] else ''
-            print('{}. {} | {}{}'.format(i+1,stored_name,stored_artist,explicit))
-        try:
-            selection = int(input('song number: ')) - 1
-            song_id = list(user.data[action].keys())[selection]
-        except:
-            song_id = None
-    if song_id:
-        if name not in user.data[action][song_id].keys():
-            for i,stored_name in enumerate(user.data[action][song_id].keys()):
-                print('{}. {}'.format(i+1,stored_name))
-            try:
-                selection = int(input('name number: ')) - 1
-                name =  list(user.data[action][song_id].keys())[selection]
-            except:
-                name = None
-    if (not song_id and name):
-        song = user.sp().track(song_id)['name'] if song_id else '[NONE]'
-        print('no element found in {} for song: {} with name: {}'.format(action,song,name))
-    return song_id, name, action
 
 
 def add(user, 
@@ -70,66 +35,65 @@ def add(user,
         end=None, 
         song_id=None, 
         name=None, 
-        include=True):
+        element_field='loops'):
     """ add loop or skip to saved options """
-    
     if not song_id:
         query=input('enter song for search: ')
         song_id = utils.select_from_search(user.sp(), query=query)
-    action = 'loops' if include else 'skips'
     start = start if start else '0:00'
     end = end if end else ms_to_time(user.sp().track(song_id)['duration_ms'])
     time_range = '{}-{}'.format(start,end)
     name = name or time_range
-    if song_id not in user.data[action].keys():
-        user.data[action][song_id] = {}
-    user.data[action][song_id][name] = time_range
+    if song_id not in user.data[element_field].keys():
+        user.data['loops'][song_id] = {}
+        user.data['skips'][song_id] = {}
+    user.data[element_field][song_id][name] = time_range
     user.save_data()
 
 
-def edit(user, 
+def edit(user,
          song_id=None, 
          name=None, 
          new_start=None, 
          new_end=None, 
-         include=True):
+         element_field='loops'):
     """ edit existing loop or skip """
-    
     if new_start or new_end:
-        song_id,name,action = select_element(user, song_id, name, include)
+        song_id,name = utils.select_element(user, song_id, name, element_field)
         if not (song_id and name):
             return
-        old_start,old_end = user.data[action][song_id][name].split('-')
+        old_start,old_end = user.data[element_field][song_id][name].split('-')
         start = new_start or old_start
         end = new_end or old_end
-        user.data[action][song_id][name] = '{}-{}'.format(start,end)
+        user.data[element_field][song_id][name] = '{}-{}'.format(start,end)
         user.save_data()
         
 
 def view(user, 
          song_id=None, 
          name=None, 
-         include=True):
+         element_field='loops'):
     """ view stored loops or skips, filtered by song and name """
-    
-    song_id,name,action = select_element(user, song_id, name, include)
-    if song_id not in user.data[action].keys():
-        print(user.data[action])
-    elif name not in user.data[action][song_id].keys():
-        print(user.data[action][song_id])
-    else:
-        print(user.data[action][song_id][name])
+    if element_field=='loops' or element_field=='skips':
+        song_id,name = utils.select_element(user, song_id, name, element_field)
+        if song_id not in user.data[element_field].keys():
+            print(user.data[element_field])
+        elif name not in user.data[element_field][song_id].keys():
+            print(user.data[element_field][song_id])
+        else:
+            print(user.data[element_field][song_id][name])
 
 
 def play(user, 
          song_id=None, 
-         name=None, 
+         name='FULLSONG', 
          device=None, 
          reps=1,  
-         include=True,
-         repeat=False):
+         element_field='loops',
+         repeat=False,
+         checks=0):
     """ play existing loop or skip """
-    
+    include = element_field=='loops'
     def inLoop(playback, t1, t2, include):
         if playback:
             return (t1 <= playback['progress_ms'] < t2) == include
@@ -144,11 +108,14 @@ def play(user,
                                                                      include)):
                         return playback
     
-    song_id,name,action = select_element(user, song_id, name, include)
-    if not (song_id and name):
+    song_id,name = utils.select_element(user, song_id, name, element_field)
+    if not song_id:
         return
-    times = user.data[action][song_id][name].split('-')
-    start_ms,end_ms = map(time_to_ms, times)
+    if name == 'FULLSONG':
+        start_ms, end_ms = 0, user.sp().track(song_id)['duration_ms']
+    else:
+        times = user.data[element_field][song_id][name].split('-')
+        start_ms,end_ms = map(time_to_ms, times)
     device = device or utils.select_device(user.sp())
     uri = ['https://open.spotify.com/track/'+song_id]
     print('playing: {} - {}'.format(name,user.sp().track(song_id)['name']))                
@@ -168,12 +135,17 @@ def play(user,
         if not inLoop(user.sp().current_playback(), start_ms, end_ms, include):
             user.sp().seek_track(start_ms if include else end_ms)
         while inLoop(user.sp().current_playback(), start_ms, end_ms, include):
+# =============================================================================
+#          this is the where checks gets turned into how many times (spaced at interger intervals) the interval playback is checked
+#          t.sleep(gap)
+# =============================================================================
             if not validPlayback(user.sp(), 
                                      start_ms, 
                                      end_ms, 
                                      song_id, 
                                      user.persist_through_pause, 
-                                     include): break
+                                     include):
+              break
         pb = validPlayback(user.sp(), 
                            start_ms, 
                            end_ms, 
@@ -188,17 +160,62 @@ def play(user,
             if pb['item']:
                 if pb['item']['id'] == song_id:
                     user.sp().pause_playback()
+                    return True
 
 
-#==============================================================================
-# Mixes
-#==============================================================================
+def add_skip(user, 
+             start=None, 
+             end=None, 
+             song_id=None, 
+             name=None): 
+    """ add skips only """
+    return add(user, 
+               start=start, 
+               end=end, 
+               song_id=song_id, 
+               name=name, 
+               element_field='skips')
 
-class Mix:
-    
-    def __init__(self,user,name=None):
-        self.name=name
-        
-    
-    def all_the_mix_methods():
-        pass
+def edit_skip(user, 
+              song_id=None, 
+              name=None, 
+              new_start=None, 
+              new_end=None):
+    """ edit skips only """
+    return edit(user, 
+                song_id=song_id, 
+                name=name, 
+                new_start=new_start, 
+                new_end=new_end, 
+                element_field='skips')
+
+def view_skips(user, 
+               song_id=None, 
+               name=None):
+    """ view skips only """
+    return view(user, 
+                song_id=song_id, 
+                name=name, 
+                element_field='skips')
+  
+def play_skip(user, 
+              song_id=None, 
+              name=None, 
+              device=None, 
+              reps=1,  
+              repeat=False):
+    """ play skips only """
+    return play(user, 
+                song_id=song_id, 
+                name=name, 
+                device=device, 
+                reps=1,  
+                element_field='skips',
+                repeat=repeat)
+
+
+skip = add_skip
+add_loop = loop = add
+edit_loop = edit
+view_loops = view
+play_loop = play

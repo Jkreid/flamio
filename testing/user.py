@@ -50,13 +50,13 @@ class User:
         self.STAY_LOGGED_IN = True
         self.persist_through_pause = user_data['persist'] if user_data else persist
         self.data = user_data or {'name':spotify_username, 
-                             'pw':self.pw,
-                             'tlogin':self.login_time, 
-                             'persist':self.persist_through_pause,
-                             'loops':{}, 
-                             'skips':{}, 
-                             'mixes':{}
-                             }
+                                 'pw':self.pw,
+                                 'tlogin':self.login_time, 
+                                 'persist':self.persist_through_pause,
+                                 'loops':{}, 
+                                 'skips':{}, 
+                                 'playlists':{}
+                                 }
         self.data_path = '../data/{}.json'.format(spotify_username)
         self.save_data()
                            
