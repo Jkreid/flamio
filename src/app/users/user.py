@@ -57,39 +57,6 @@ class User:
                                  'skips':{}, 
                                  'playlists':{}
                                  }
-        #data = {user1:
-        #           {'spotify':
-        #               {serviceUsername:sUn, 
-        #                tlogin, 
-        #                pauseKill, 
-        #                loops, 
-        #                skips, 
-        #                playlists, 
-        #                mix}, 
-        #            'soundcloud':
-        #               {serviceUsername:sUn, 
-        #                tlogin, 
-        #                pauseKill, 
-        #                loops, 
-        #                skips, 
-        #                playlists, 
-        #                mix}, 
-        #            'apple_music':
-        #               {serviceUsername:sUn, 
-        #                tlogin, 
-        #                pauseKill, 
-        #                loops, 
-        #                skips, 
-        #                playlists, 
-        #                mix}
-        #           },
-        #        user2,
-        #        user3,
-        #       }
-        
-        
-        
-        
         self.data_path = '../../data/{}.json'.format(spotify_username)
         self.save_data()
                            

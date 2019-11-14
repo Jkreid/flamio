@@ -91,7 +91,7 @@ def play(user,
          reps=1,  
          element_field='loops',
          repeat=False,
-         checks=480):
+         checks=0):
     """ play existing loop or skip """
     include = element_field=='loops'
     def inLoop(playback, t1, t2, include):
@@ -135,7 +135,10 @@ def play(user,
         if not inLoop(user.sp().current_playback(), start_ms, end_ms, include):
             user.sp().seek_track(start_ms if include else end_ms)
         while inLoop(user.sp().current_playback(), start_ms, end_ms, include):
-            t.sleep((end_ms-start_ms)/(1000*checks))
+# =============================================================================
+#          this is the where checks gets turned into how many times (spaced at interger intervals) the interval playback is checked
+#          t.sleep(gap)
+# =============================================================================
             if not validPlayback(user.sp(), 
                                      start_ms, 
                                      end_ms, 

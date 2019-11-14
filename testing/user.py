@@ -57,7 +57,7 @@ class User:
                                  'skips':{}, 
                                  'playlists':{}
                                  }
-        self.data_path = '../data/{}.json'.format(spotify_username)
+        self.data_path = '../src/app/data/{}.json'.format(spotify_username)
         self.save_data()
                            
     
@@ -115,7 +115,7 @@ def new_user(username, password=None, confirm=None, persist=False):
 
 def load_user(username, password):
     """ Load user object from saved data """
-    data_path = '../data/{}.json'.format(username)
+    data_path = '../src/app/data/{}.json'.format(username)
     if os.path.exists(data_path):
         with open(data_path) as d:
             data = json.load(d)
