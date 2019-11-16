@@ -121,7 +121,7 @@ def device(username,
            asked_for_current_device=False):
     # get w/ input
     """ Get device id from user selection """
-    users = flamio.get_users(path)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             player = flamio.get_player(username, service, users, path)

@@ -62,7 +62,7 @@ def add_loop(username,
     # update
     """ add loop or skip to saved options """
     if not ((start == '0:00') and (not end) and (field == 'skips')):
-        users = flamio.get_users(path, users)
+        users = users or flamio.get_users(path)
         if username in users:
             if service in users[username]:
                 user = users[username][service]
@@ -103,7 +103,7 @@ def delete_loop(username,
                 users={},
                 path='.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
@@ -141,7 +141,7 @@ def edit_loop(username,
     # update
     """ edit existing loop or skip """
     if new_start or new_end:
-        users = flamio.get_users(path,users)
+        users = users or flamio.get_users(path)
         if username in users:
             if service in users[username]:
                 user = users[username][service]
@@ -194,7 +194,7 @@ def view_loops(username,
                user={}):
     # get w/ input and update if token expired
     """ view stored loops or skips, filtered by song and name """
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = user or flamio.get_user(username, service, users, path)
@@ -233,7 +233,7 @@ def rename_loop(username,
                 users={},
                 path='.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
@@ -280,10 +280,13 @@ def play_loop(username,
          repeat=False,
          checks=480,
          users={},
-         path='.'):
+         path='.',
+         start='0:0',
+         end='0:0',
+         buff=0):
     # play and update if token expired
     """ play existing loop or skip """
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
@@ -294,7 +297,7 @@ def play_loop(username,
                     include = field == 'loops'
                     def inLoop(playback, t1, t2, include):
                         if playback:
-                            return (t1 <= playback['progress_ms'] < t2) == include
+                            return (t1 < playback['progress_ms'] < t2) == include
                         
                     def validPlayback(player, t1, t2, song_id, pauseKill, include):
                         playback = player.current_playback()
@@ -309,13 +312,19 @@ def play_loop(username,
                                     
                     if name == 'FULLSONG':
                         player = get_player()
-                        start_ms, end_ms = 0, player.track(song_id)['duration_ms']
+                        start_ms = time_to_ms(start)
+                        end_ms = time_to_ms(end) or player.track(song_id)['duration_ms']
                     else:
                         times = user[field][song_id][name].split('-')
                         start_ms,end_ms = map(time_to_ms, times)
                     uri = ['https://open.spotify.com/track/'+song_id]
                     player = get_player()
-                    print('playing: {} - {}'.format(name,player.track(song_id)['name']))                
+                    if name == 'FULLSONG':
+                        if any(not time_to_ms(time) for time in [start, end]):
+                            name = '{} - {} to {}'.format(field[:-1], start, ms_to_time(end_ms))
+                    else:
+                        name = field[:-1]+' - '+name
+                    print('playing: {} -- {}'.format(player.track(song_id)['name'],name))                
                     pb = player.current_playback()
                     if pb:
                         repeat = 'track' if repeat else pb['repeat_state']
@@ -332,20 +341,22 @@ def play_loop(username,
                         player = get_player()
                         if not inLoop(player.current_playback(), start_ms, end_ms, include):
                             player.seek_track(start_ms if include else end_ms)
-                        while inLoop(get_player().current_playback(), start_ms, end_ms, include):
+                            if not player.current_playback()['is_playing']:
+                                player.start_playback()
+                        while inLoop(get_player().current_playback(), start_ms+buff, end_ms-buff, include):
                             t.sleep((end_ms-start_ms)/(1000*checks))
                             if not validPlayback(get_player(), 
                                                      start_ms, 
                                                      end_ms, 
                                                      song_id, 
-                                                     users[username]['pauseKill'], 
+                                                     user['pauseKill'], 
                                                      include):
                               break
                         pb = validPlayback(get_player(), 
                                            start_ms, 
                                            end_ms, 
                                            song_id, 
-                                           users[username]['pauseKill'], 
+                                           user['pauseKill'], 
                                            include)
                         i+=1
                     
@@ -373,7 +384,10 @@ def play_skip(username,
          repeat=False,
          checks=480,
          users={},
-         path='.'):
+         path='.',
+         start='0:0',
+         end='0:0',
+         buff=0):
     # play and update if token expired
     return play_loop(username=username,
                      service=service,
@@ -385,4 +399,7 @@ def play_skip(username,
                      repeat=repeat,
                      checks=checks,
                      users=users,
-                     path=path)
+                     path=path,
+                     start=start,
+                     end=end,
+                     buff=buff)

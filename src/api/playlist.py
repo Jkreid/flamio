@@ -22,7 +22,7 @@ def new(username,
         users={},
         path= '.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
@@ -33,7 +33,7 @@ def new(username,
                     number = int(untitled[-1].split(' ')[-1]) + 1
                     while 'untitled {}'.format(number) in untitled:
                         number += 1
-                name = 'untitled {}'.format(number)
+                    name = 'untitled {}'.format(number)
                 playlists[name] = []
                 flamio.save(users,path)
 
@@ -42,49 +42,63 @@ def add_loop(username,
              service,
              name,
              song_id,
-             loop_name,
+             loop_name='FULLSONG',
              position=None, 
              field='loops', 
              reps=1,
              users={},
-             path='.'):
+             path='.',
+             start=None,
+             end=None):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
             if name in user['playlists']:
-                if song_id in user[field]:
-                    if loop_name in user[field][song_id]:
+                if song_id in user[field] or loop_name == 'FULLSONG':
+                    if loop_name == 'FULLSONG' or loop_name in user[field][song_id]:
                         playlist = user['playlists'][name]
                         loop = {'field':field, 
                                 'song_id':song_id, 
                                 'name':loop_name, 
                                 'reps':reps}
+                        if field == 'loops' and loop_name == 'FULLSONG':
+                            if start or end:
+                                if start:
+                                    loop['start'] = start
+                                if end:
+                                    loop['end'] = end
+                            else:
+                                loop['buff'] = 500
                         position = position or len(playlist) + 1
                         playlist.insert(position-1, loop)
                         flamio.save(users,path)
   
 def add_skip(username,
              service,
-             song_id,
              name,
-             loop_name,
+             song_id,
+             loop_name='FULLSONG',
              position=None, 
              reps=1,
              users={},
-             path='.'):
+             path='.',
+             start=None,
+             end=None):
     # update
     return add_loop(username=username,
                     service=service,
+                    name=name,
                     song_id=song_id,
                     loop_name=loop_name,
-                    name=name, 
                     position=position, 
                     field='skips', 
                     reps=reps,
                     users=users,
-                    path=path)
+                    path=path,
+                    start=start,
+                    end=end)
 
 def add_stremix(username,
                 service,
@@ -95,7 +109,7 @@ def add_stremix(username,
                 users={},
                 path='.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
@@ -117,14 +131,14 @@ def move_item(username,
               users={},
               path='.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
             if name in user['playlists']:
                 playlist = user['playlists'][name]
                 num_loops = len(playlist)
-                if num_loops >= init_position:
+                if init_position and -num_loops <= init_position <= num_loops:
                     new_position = new_position or num_loops
                     playlist.insert(new_position-1, playlist.pop(init_position-1))
                     flamio.save(users,path)
@@ -139,15 +153,15 @@ def duplicate_item(username,
                    users={},
                    path='.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
             if name in user['playlists']:
                 playlist = user['playlists'][name]
                 num_loops = len(playlist)
-                if num_loops >= init_position:
-                    paste_position = paste_position or num_loops
+                if init_position and -num_loops <= init_position <= num_loops:
+                    paste_position = paste_position or num_loops+1
                     playlist.insert(paste_position-1, playlist[init_position-1])
                     if reps:
                         change_reps(username, 
@@ -167,14 +181,14 @@ def delete_item(username,
                 users={},
                 path='.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
             if name in user['playlists']:
                 playlist = user['playlists'][name]
                 num_loops = len(playlist)
-                if num_loops >= position:
+                if position and -num_loops <= position <= num_loops:
                     playlist.pop(position-1)
                     flamio.save(users,path)
     
@@ -187,13 +201,14 @@ def change_reps(username,
                 users={},
                 path='.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
             if name in user['playlists']:
                 playlist = user['playlists'][name]
-                if position >= len(playlist):
+                num_loops = len(playlist)
+                if position and -num_loops <= position <= num_loops:
                     playlist[position-1]['reps'] = reps
                     flamio.save(users,path)
 
@@ -209,7 +224,7 @@ def play(username,
          users={},
          path='.'):
     # play
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
@@ -223,12 +238,14 @@ def play(username,
                 if reverse:
                     playlist = playlist.copy().reverse()
                 i,j=0,0
-                while i < reps | player.current_playback()['repeat_state'] == 'context':
+                print('playing playlist: {}'.format(name))
+                while (i < reps) or (player.current_playback()['repeat_state'] == 'context'):
                     for item in playlist:
                         if not i and j < offset:
                             continue
                         play_func = play_functions[item['field']]
-                        continue_play = play_func(username=username, 
+                        continue_play = play_func(username=username,
+                                                  service=service,
                                                   users=users, 
                                                   path=path, 
                                                   device=device, 
@@ -261,7 +278,7 @@ def delete_playlist(username,
                     users={},
                     path='.'):
     # delete
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
@@ -277,7 +294,7 @@ def rename(username,
            users={},
            path='.'):
     # update
-    users = flamio.get_users(path,users)
+    users = users or flamio.get_users(path)
     if username in users:
         if service in users[username]:
             user = users[username][service]
