@@ -6,8 +6,11 @@ Created on Fri Nov  1 17:18:52 2019
 
 API loopify
 """
+import os
+import sys
+sys.path.insert(1, os.path.realpath('../..'))
+import src.api.utils.flamio as flamio
 import time as t
-import utils.flamio as flamio
 
 # =============================================================================
 # Loop and Skip Functions
@@ -50,7 +53,7 @@ def end_to_time(username,
     return ms_to_time(end_to_ms(username, service, song_id, users, path))
 
 
-def add_loop(username,
+def new_loop(username,
              service,
              song_id,
              name=None,
@@ -75,7 +78,7 @@ def add_loop(username,
                 flamio.save(users,path)
 
 
-def add_skip(username,
+def new_skip(username,
              service,
              song_id,
              name=None,
@@ -84,7 +87,7 @@ def add_skip(username,
              users={},
              path='.'):
     # update
-    return add_loop(username=username,
+    return new_loop(username=username,
                     service=service,
                     song_id=song_id,
                     name=name,
@@ -270,7 +273,7 @@ def rename_skip(username,
                        path=path)
 
 
-def play_loop(username,
+def play(username,
          service,
          song_id, 
          name='FULLSONG', 
@@ -375,31 +378,33 @@ def play_loop(username,
                 elif service == 'apple_music':
                     pass
 
-def play_skip(username,
-         service,
-         song_id, 
-         name='FULLSONG', 
-         device=None, 
-         reps=1,  
-         repeat=False,
-         checks=480,
-         users={},
-         path='.',
-         start='0:0',
-         end='0:0',
-         buff=0):
-    # play and update if token expired
-    return play_loop(username=username,
-                     service=service,
-                     song_id=song_id, 
-                     name=name, 
-                     device=device, 
-                     reps=reps,  
-                     field='skips',
-                     repeat=repeat,
-                     checks=checks,
-                     users=users,
-                     path=path,
-                     start=start,
-                     end=end,
-                     buff=buff)
+# =============================================================================
+# def play_skip(username,
+#          service,
+#          song_id, 
+#          name='FULLSONG', 
+#          device=None, 
+#          reps=1,  
+#          repeat=False,
+#          checks=480,
+#          users={},
+#          path='.',
+#          start='0:0',
+#          end='0:0',
+#          buff=0):
+#     # play and update if token expired
+#     return play_loop(username=username,
+#                      service=service,
+#                      song_id=song_id, 
+#                      name=name, 
+#                      device=device, 
+#                      reps=reps,  
+#                      field='skips',
+#                      repeat=repeat,
+#                      checks=checks,
+#                      users=users,
+#                      path=path,
+#                      start=start,
+#                      end=end,
+#                      buff=buff)
+# =============================================================================

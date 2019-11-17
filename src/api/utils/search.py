@@ -4,7 +4,11 @@ Created on Tue Nov  5 00:05:01 2019
 
 @author: justi
 """
-import utils.flamio as flamio
+
+import os
+import sys
+sys.path.insert(1, os.path.realpath('../../..'))
+import src.api.utils.flamio as flamio
 
 
 def show(result,i):

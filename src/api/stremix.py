@@ -7,5 +7,5 @@ Created on Fri Nov  1 17:28:01 2019
 API stremix
 """
 
-def play_mix():
+def play():
     pass

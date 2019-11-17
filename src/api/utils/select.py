@@ -4,10 +4,11 @@ Created on Tue Nov  5 00:05:13 2019
 
 @author: justi
 """
-
-
-import utils.search as search
-import utils.flamio as flamio
+import os
+import sys
+sys.path.insert(1, os.path.realpath('../../..'))
+import src.api.utils.flamio as flamio
+import src.api.utils.search as search
 
 
 def from_saved(field,

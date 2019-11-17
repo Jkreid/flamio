@@ -7,9 +7,13 @@ Created on Fri Nov  1 21:07:13 2019
 API playlist
 """
 
-import utils.flamio as flamio
-from loopify import play_loop, play_skip
-from stremix import play_mix
+import os
+import sys
+sys.path.insert(1, os.path.realpath('../..'))
+import src.api.utils.flamio as flamio
+import src.api as api
+import src.api.loopify as loopify
+import src.api.stremix as stremix
 #==============================================================================
 # Playlist Functions
 #==============================================================================
@@ -100,10 +104,11 @@ def add_skip(username,
                     start=start,
                     end=end)
 
-def add_stremix(username,
+def add_mix(username,
                 service,
                 name,
-                stremix_name,
+                mix_name,
+                field='playlists',
                 position=None,
                 reps=1,
                 users={},
@@ -113,11 +118,11 @@ def add_stremix(username,
     if username in users:
         if service in users[username]:
             user = users[username][service]
-            if name in user['playlists']:
-                if stremix_name in user['stremixes']:
-                    playlist = user['playlists'][name]
-                    mix = {'field':'stremixes', 
-                            'name':stremix_name, 
+            if name in user[field]:
+                if mix_name in user[field]:
+                    playlist = user[field][name]
+                    mix = {'field':field, 
+                            'name':mix_name, 
                             'reps':reps}
                     position = position or len(playlist) + 1
                     playlist.insert(position-1, mix)
@@ -230,9 +235,11 @@ def play(username,
             user = users[username][service]
             if name in user['playlists']:
                 playlist = user['playlists'][name]
-                play_functions = {'loops':play_loop, 
-                                  'skips':play_skip,
-                                  'stremixes':play_mix}
+# =============================================================================
+#                 play_functions = {'loops':play_loop, 
+#                                   'skips':play_skip,
+#                                   'stremixes':play_mix}
+# =============================================================================
                 player = flamio.get_player(username,service,users,path)
                 player.repeat('context' if repeat else 'off')
                 if reverse:
@@ -243,13 +250,22 @@ def play(username,
                     for item in playlist:
                         if not i and j < offset:
                             continue
-                        play_func = play_functions[item['field']]
-                        continue_play = play_func(username=username,
-                                                  service=service,
-                                                  users=users, 
-                                                  path=path, 
-                                                  device=device, 
-                                                  **{k:item[k] for k in item if k !='field'})
+                        #play_func = play_functions[item['field']]
+                        continue_play = api.play(username=username,
+                                                 service=service,
+                                                 users=users,
+                                                 path=path,
+                                                 device=device,
+                                                 **item)
+# =============================================================================
+#                         continue_play = play_func(username=username,
+#                                                   service=service,
+#                                                   users=users, 
+#                                                   path=path, 
+#                                                   device=device,
+#                                                   **item)
+#                                                   #**{k:item[k] for k in item if k !='field'})
+# =============================================================================
                         player = flamio.get_player(username,service,users,path)
                         if not continue_play:
                             break
@@ -300,4 +316,5 @@ def rename(username,
             user = users[username][service]
             if name in user['playlists']:
                 user['playlists'][new_name] = user['playlists'].pop(name)
+                # also need to update all embedded playlist occurance of this playlist
                 flamio.save(users,path)

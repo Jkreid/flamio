@@ -8,10 +8,12 @@ API utils
 """
 
 import os
-import json
-import spotipy
-#import spoitpy.util as util
+import sys
+sys.path.insert(1, os.path.realpath('../../..'))
+import spotipy_master.spotipy as spotipy
+import spotipy_master.spotipy.util as util
 import time as t
+import json
 
 # =============================================================================
 # Streaming Service App Global Variables
@@ -55,6 +57,18 @@ def get_user(username,
     return {}
 
 
+def delete_user(username,
+                service,
+                users={},
+                path='.'):
+    # delete
+    users = users or get_users(path)
+    if users:
+        if username in users[username]:
+            users[username][service] = {}
+            save(users, path)
+
+
 def save(users, path='.'):
     # update
     path +='/users.json'
@@ -80,7 +94,7 @@ def get_token(service,
               s_username):
     # get w/ input
     if service == 'spotify':
-        token = spotipy.util.prompt_for_user_token(username=s_username,
+        token = util.prompt_for_user_token(username=s_username,
                                                    **AUTHENICATORS[service])
     elif service == 'soundcloud':
         token = None
