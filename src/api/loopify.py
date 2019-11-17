@@ -6,9 +6,6 @@ Created on Fri Nov  1 17:18:52 2019
 
 API loopify
 """
-import os
-import sys
-sys.path.insert(1, os.path.realpath('../..'))
 import src.api.utils.flamio as flamio
 import time as t
 
@@ -243,7 +240,7 @@ def rename_loop(username,
             if song_id in user[field]:
                 if name in user[field][song_id]:
                     user[field][song_id][new_name] = user[field][song_id].pop(name)
-                    # rename in playlist and stremixes
+                    # rename in playlists and stremixes
                     for playlist in user['playlists'].values():
                         for item in playlist:
                             if item['field'] == field:

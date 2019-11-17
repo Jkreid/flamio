@@ -8,12 +8,10 @@ API utils
 """
 
 import os
-import sys
-sys.path.insert(1, os.path.realpath('../../..'))
+import json
+import time as t
 import spotipy_master.spotipy as spotipy
 import spotipy_master.spotipy.util as util
-import time as t
-import json
 
 # =============================================================================
 # Streaming Service App Global Variables

@@ -12,12 +12,12 @@ import spotipy_master.spotipy as spotipy
 import spotipy.util as util
 import src.api.utils.flamio as flamio
 # =============================================================================
+# import src.api as api
 # import src.api.utils.select as select
 # import src.api.utils.search as search
 # import src.api.loopify as loopify
 # import src.api.playlist as playlist
 # import src.api.stremix as stremix
-# import src.api as api
 # =============================================================================
 
 def test_spotify():

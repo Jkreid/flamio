@@ -7,13 +7,8 @@ Created on Fri Nov  1 21:07:13 2019
 API playlist
 """
 
-import os
-import sys
-sys.path.insert(1, os.path.realpath('../..'))
 import src.api.utils.flamio as flamio
 import src.api as api
-import src.api.loopify as loopify
-import src.api.stremix as stremix
 #==============================================================================
 # Playlist Functions
 #==============================================================================
@@ -235,11 +230,6 @@ def play(username,
             user = users[username][service]
             if name in user['playlists']:
                 playlist = user['playlists'][name]
-# =============================================================================
-#                 play_functions = {'loops':play_loop, 
-#                                   'skips':play_skip,
-#                                   'stremixes':play_mix}
-# =============================================================================
                 player = flamio.get_player(username,service,users,path)
                 player.repeat('context' if repeat else 'off')
                 if reverse:
@@ -250,22 +240,12 @@ def play(username,
                     for item in playlist:
                         if not i and j < offset:
                             continue
-                        #play_func = play_functions[item['field']]
                         continue_play = api.play(username=username,
                                                  service=service,
                                                  users=users,
                                                  path=path,
                                                  device=device,
                                                  **item)
-# =============================================================================
-#                         continue_play = play_func(username=username,
-#                                                   service=service,
-#                                                   users=users, 
-#                                                   path=path, 
-#                                                   device=device,
-#                                                   **item)
-#                                                   #**{k:item[k] for k in item if k !='field'})
-# =============================================================================
                         player = flamio.get_player(username,service,users,path)
                         if not continue_play:
                             break
@@ -316,5 +296,10 @@ def rename(username,
             user = users[username][service]
             if name in user['playlists']:
                 user['playlists'][new_name] = user['playlists'].pop(name)
-                # also need to update all embedded playlist occurance of this playlist
+                # rename in playlists
+                for playlist in user['playlists'].values():
+                    for item in playlist:
+                        if item['field'] == 'playlists':
+                            if item['name'] == name:
+                                item['name'] = new_name
                 flamio.save(users,path)

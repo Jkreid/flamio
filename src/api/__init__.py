@@ -3,11 +3,11 @@
 Created on Tue Nov 12 22:13:03 2019
 
 @author: justi
+
+API
 """
 
-import os
-import sys
-sys.path.insert(1, os.path.realpath('../..'))
+
 import src.api.utils.flamio as flamio
 import src.api.loopify as loopify
 import src.api.playlist as playlist
@@ -71,22 +71,24 @@ def remove(field, username, service, name, position, users={}, path='.'):
 
 
 def multiremove(username, service, field, name, positions, users, path):
-    for i,position in enumerate(sorted(positions)):
-        remove(field, username, service, name, 
-               position=position-i, users=users, path=path)
+    # from playlist, from stremix
+    if field in ['playlists', 'stremixes']:
+        for i,position in enumerate(sorted(positions)):
+            remove(field, username, service, name, 
+                   position=position-i, users=users, path=path)
     
 
-def play(field, username, service, device=None, users={}, path='.', **kwargs):
+def play(username, service, field, device=None, users={}, path='.', **kwargs):
     # loop, skip, playlist, stremix
     if field in ['loops', 'skips']:
-        loopify.play(username=username, service=service, field=field,
-                     device=device, users=users, path=path, **kwargs)
+        return loopify.play(username=username, service=service, field=field,
+                            device=device, users=users, path=path, **kwargs)
     elif field == 'playlists':
-        playlist.play(username=username, service=service, device=device, users=users, 
-                      path=path, **kwargs)
+        return playlist.play(username=username, service=service, device=device, users=users, 
+                             path=path, **kwargs)
     elif field == 'stremixes':
-        stremix.play(username=username, service=service, device=device, users=users, 
-                     path=path, **kwargs)
+        return stremix.play(username=username, service=service, device=device, users=users, 
+                            path=path, **kwargs)
 
 
 def view(username, service, field, user={}, **kwargs):
@@ -101,3 +103,35 @@ def view(username, service, field, user={}, **kwargs):
         pass
 
 
+def edit(username, service, field, song_id, name, **kwargs):
+    # loop, skip
+    if field in ['loops', 'skips']:
+        loopify.edit_loop(username=username, service=service, field=field,
+                          song_id=song_id, name=name, **kwargs)
+
+
+def move(username, service, field, **kwargs):
+    # in playlist
+    if field == 'playlists':
+        playlist.move_item(username=username, service=service, **kwargs)
+    # in stremix
+    elif field == 'stremixes':
+        pass
+
+
+def duplicate(username, service, field, **kwargs):
+    # in playlist
+    if field == 'playlists':
+        playlist.duplicate_item(username=username, service=service, **kwargs)
+    # in stremix
+    elif field == 'stremixes':
+        pass
+
+
+def change_reps(username, service, field, **kwargs):
+    # in playlist
+    if field == 'playlists':
+        playlist.change_reps(username=username, service=service, **kwargs)
+    # in stremix
+    elif field == 'stremixes':
+        pass
