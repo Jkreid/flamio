@@ -283,7 +283,8 @@ def play(username,
          path='.',
          start='0:0',
          end='0:0',
-         buff=0):
+         buff=0,
+         pause_at_finish=False):
     # play and update if token expired
     """ play existing loop or skip """
     users = users or flamio.get_users(path)
@@ -318,12 +319,12 @@ def play(username,
                         times = user[field][song_id][name].split('-')
                         start_ms,end_ms = map(time_to_ms, times)
                     uri = ['https://open.spotify.com/track/'+song_id]
-                    player = get_player()
                     if name == 'FULLSONG':
                         if any(not time_to_ms(time) for time in [start, end]):
                             name = '{} - {} to {}'.format(field[:-1], start, ms_to_time(end_ms))
                     else:
                         name = field[:-1]+' - '+name
+                    player = get_player()
                     print('playing: {} -- {}'.format(player.track(song_id)['name'],name))                
                     pb = player.current_playback()
                     if pb:
@@ -344,7 +345,7 @@ def play(username,
                             if not player.current_playback()['is_playing']:
                                 player.start_playback()
                         while inLoop(get_player().current_playback(), start_ms+buff, end_ms-buff, include):
-                            t.sleep((end_ms-start_ms)/(1000*checks))
+                            t.sleep((end_ms-start_ms - 2*buff)/(1000*checks))
                             if not validPlayback(get_player(), 
                                                      start_ms, 
                                                      end_ms, 
@@ -366,8 +367,9 @@ def play(username,
                         if pb['is_playing']:
                             if pb['item']:
                                 if pb['item']['id'] == song_id:
-                                    player.pause_playback()
-                                    return True
+                                    if pause_at_finish:
+                                        player.pause_playback()
+                            return True
                 # soundcloud play boi
                 elif service == 'soundcloud':
                     pass

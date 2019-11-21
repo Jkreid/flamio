@@ -20,9 +20,14 @@ import src.api.utils.flamio as flamio
 # import src.api.stremix as stremix
 # =============================================================================
 
+USERNAME = {'flamio':'jr', 'spotify':'12125880630', 'soundcloud':'', 'apple_music':''}
+path='./test_data'
+
+
+
 def test_spotify():
     
-    token = util.prompt_for_user_token(username='12125880630', 
+    token = util.prompt_for_user_token(username=USERNAME['spotify'], 
                                        **{
                                         'redirect_uri':'http://localhost:8888/lab',
                                         'client_id':'cd33a00276a645f393445c438115b958',
@@ -35,24 +40,72 @@ def test_spotify():
                                        )
     username=spotipy.Spotify(auth=token).me()['id']
     
-    assert username == '12125880630'
+    assert username == USERNAME['spotify']
 
 
-def test_newUser():
+def test_soundcloud():
+    pass
+
+
+def test_apple_music():
+    pass
+
+
+def test_new_user_spotify():
     
-    flamio.new_user_and_service(username='jr', service='spotify', service_un='12125880630')
+    flamio.new_user_and_service(path=path, username=USERNAME['flamio'], service='spotify', service_un=USERNAME['spotify'])
 
-    assert 'jr' in flamio.get_users('/Users/justi/Documents/public_repos/flamio/src')
+    assert USERNAME['flamio'] in flamio.get_users(path)
+    assert USERNAME['spotify'] in flamio.get_users(path)[USERNAME['flamio']]['spotify']['username']
+    
+
+def test_new_loop():
+    pass
 
 
-def test_getUser():
-    
-    users=flamio.get_users('/Users/justi/Documents/public_repos/flamio/src')
-    
-    assert 'jr' in users
+def test_new_skip():
+    pass
 
-def test_getPlayer():
+
+def test_new_playlist():
+    pass
+
+
+def test_new_stremix():
+    pass
+
+
+def test_delete_user():
+    pass
     
-    player = flamio.get_player(username='jr',service='spotify')
-    
-    assert player.me()['id'] == '12125880630'
+
+def test_delete_loop():
+    pass
+
+
+def test_delete_skip():
+    pass
+
+
+def test_delete_playlist():
+    pass
+
+
+def test_delete_stremix():
+    pass
+
+
+def test_rename_loop():
+    pass
+
+
+def test_rename_skip():
+    pass
+
+
+def test_rename_playlist():
+    pass
+
+
+def test_rename_stremix():
+    pass

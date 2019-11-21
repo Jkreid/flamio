@@ -222,7 +222,8 @@ def play(username,
          offset=0, 
          reverse=False,
          users={},
-         path='.'):
+         path='.',
+         pause_at_finish=True):
     # play
     users = users or flamio.get_users(path)
     if username in users:
@@ -245,6 +246,7 @@ def play(username,
                                                  users=users,
                                                  path=path,
                                                  device=device,
+                                                 pause_at_finish=pause_at_finish,
                                                  **item)
                         player = flamio.get_player(username,service,users,path)
                         if not continue_play:

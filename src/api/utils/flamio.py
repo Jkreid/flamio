@@ -36,12 +36,26 @@ AUTHENICATORS = {
 
 def get_users(path='.'):
     # get w/ input
-    path +='/users.json'
     if os.path.exists(path):
-        with open(path, 'r') as d:
-            users = json.load(d)
-        return users
-    return {}
+        path +='/users.json'
+        if os.path.exists(path):
+            with open(path, 'r') as d:
+                users = json.load(d)
+            return users
+    else:
+        os.mkdir(path)
+        return {}
+
+
+def save(users, path='.'):
+    # update
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path +='/users.json'
+    if users:
+        with open(path, 'w') as f:
+            json.dump(users, f)
+
 
 def get_user(username, 
              service, 
@@ -66,13 +80,6 @@ def delete_user(username,
             users[username][service] = {}
             save(users, path)
 
-
-def save(users, path='.'):
-    # update
-    path +='/users.json'
-    if users:
-        with open(path, 'w') as f:
-            json.dump(users, f)
 
 def new_user(username, 
              users={}, 
