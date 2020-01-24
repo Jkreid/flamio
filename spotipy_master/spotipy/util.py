@@ -2,14 +2,7 @@
 # shows a user's playlists (need to be authenticated via oauth)
 
 from __future__ import print_function
-#import os
-import sys
-sys.path.insert(1, '/Users/justi/Documents/public_repos/flamio/')
 from spotipy_master.spotipy.oauth2 import SpotifyOAuth
-
-#import spotipy_master.spotipy#.oauth2 as oauth2
-#import oauth2
-#import spotipy
 import requests
 
 def prompt_for_user_token(username, scope=None, client_id = None,
@@ -74,30 +67,30 @@ def prompt_for_user_token(username, scope=None, client_id = None,
             complete the authorization.
 
         ''')
-        auth_url = sp_oauth.get_authorize_url()
-        r = requests.get(auth_url)
-        response = r.url
-# =============================================================================
-#         try:
-#             import webbrowser
-#             webbrowser.open(auth_url)
-#             print("Opened %s in your browser" % auth_url)
-#         except:
-#             print("Please navigate here: %s" % auth_url)
-# 
-#         print()
-#         print()
-#         try:
-#             response = raw_input("Enter the URL you were redirected to: ")
-#         except NameError:
-#             response = input("Enter the URL you were redirected to: ")
-# 
-#         print()
-#         print() 
-# 
-# =============================================================================
-        code = sp_oauth.parse_response_code(response)
-        token_info = sp_oauth.get_access_token(code)
+        
+        try:
+            auth_url = sp_oauth.get_authorize_url()
+            r = requests.get(auth_url)
+            response = r.url
+            code = sp_oauth.parse_response_code(response)
+            token_info = sp_oauth.get_access_token(code)
+        except:
+            try:
+                import webbrowser
+                webbrowser.open(auth_url)
+                print("Opened %s in your browser" % auth_url)
+            except:
+                print("Please navigate here: %s" % auth_url)
+    
+            print()
+            print()
+            try:
+                response = raw_input("Enter the URL you were redirected to: ")
+            except NameError:
+                response = input("Enter the URL you were redirected to: ")
+            code = sp_oauth.parse_response_code(response)
+            token_info = sp_oauth.get_access_token(code)
+     
     # Auth'ed API request
     if token_info:
         return token_info['access_token']

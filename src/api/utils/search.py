@@ -5,10 +5,7 @@ Created on Tue Nov  5 00:05:01 2019
 @author: justi
 """
 
-import os
-import sys
-sys.path.insert(1, os.path.realpath('../../..'))
-import src.api.utils.flamio as flamio
+import src.api.flamio as flamio
 
 
 def show(result,i):
@@ -32,7 +29,7 @@ def item(username,
          service, 
          query,
          field,
-         users={}, 
+         users={},
          path='.', 
          limit=10, 
          offset=0, 

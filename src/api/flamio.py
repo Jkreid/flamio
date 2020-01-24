@@ -36,15 +36,15 @@ AUTHENICATORS = {
 
 def get_users(path='.'):
     # get w/ input
-    if os.path.exists(path):
-        path +='/users.json'
-        if os.path.exists(path):
-            with open(path, 'r') as d:
+    path_json = path + '/users.json'
+    path_existed = os.path.exists(path)
+    if path_existed:
+        if os.path.exists(path_json):
+            with open(path_json, 'r') as d:
                 users = json.load(d)
             return users
-    else:
-        os.mkdir(path)
-        return {}
+    save({'__base__':{}},path)
+    return {'__base__':{}}
 
 
 def save(users, path='.'):
@@ -64,7 +64,7 @@ def get_user(username,
     # get w/ input
     users = users or get_users(path)
     if users:
-        if username in users[username]:
+        if username in users:
             return users[username][service]
     return {}
 
@@ -144,12 +144,14 @@ def add_service(service_un,
                                             'refresh':tokenLifetime[service],
                                             'username':service_un,
                                             'token':token,
-                                            'loops':{},
-                                            'skips':{},
-                                            'playlists':{},
-                                            'stremixes':{}
+                                            'loop':{},
+                                            'cut':{},
+                                            'skip':{},
+                                            'mix':{},
                                            }
                 save(users=users, path=path)
+            else:
+                print('No token')
 
 def new_user_and_service(username,
                          service,

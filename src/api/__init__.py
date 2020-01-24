@@ -8,11 +8,36 @@ API
 """
 
 
-import src.api.utils.flamio as flamio
+import src.api.flamio as flamio
 import src.api.loopify as loopify
-import src.api.playlist as playlist
-import src.api.stremix as stremix
+import src.api.mixify as mixify
+import src.api.skipify as skipify
 
+class Client:
+    
+    def __init__(self, username, service, savepath):
+        self.username = username
+        self.service = service
+        self.path = savepath
+        self.user = flamio.get_user(username,service,path=savepath)
+    
+    
+    def get(self, field, **kwargs):
+        pass
+    
+    
+    def put(self, field, **kwargs):
+        pass
+    
+    
+    def post(self, field, **kwargs):
+        pass
+    
+    
+    def delete(self, field, **kwargs):
+        pass
+    
+    
 
 def new(username, service, field, **kwargs):
     # user, loop, skip, playlist, stremix
@@ -21,7 +46,7 @@ def new(username, service, field, **kwargs):
     elif field in ['loops', 'skips']:
         loopify.new_loop(username=username, service=service, field=field, **kwargs)
     elif field == 'playlists':
-        playlist.new(username=username, service=service, **kwargs)
+        mixify.new(username=username, service=service, **kwargs)
     elif field == 'stremixes':
         pass
 
@@ -33,7 +58,7 @@ def delete(username, service, field, **kwargs):
     elif field in ['loops', 'skips']:
         loopify.delete_loop(username=username, service=service, field=field, **kwargs)
     elif field == 'playlists':
-        playlist.new(username=username, service=service, **kwargs)
+        mixify.delete(username=username, service=service, **kwargs)
     elif field == 'stremixes':
         stremix.new(username=username, service=service, **kwargs)
 
@@ -43,27 +68,28 @@ def rename(username, service, field, **kwargs):
     if field in ['loops', 'skips']:
         loopify.rename_loop(username=username, service=service, field=field, **kwargs)
     elif field == 'playlists':
-        playlist.rename(username=username, service=service, **kwargs)
+        mixify.rename(username=username, service=service, **kwargs)
     elif field == 'stremixes':
         stremix.rename(username=username, service=service, **kwargs)
 
 
 def add(username, service, field, item_field, **kwargs):
-    # to playlist - loop, skip, stremix, playlist
+    # to avoid - skip, new_skip
+    # to mix - loop, skip, mix, avoid
     if field == 'playlists':
         if item_field in ['loops', 'skips']:
-            playlist.add_loop(username=username, service=service, field=item_field, **kwargs)
+            mixify.add_loop(username=username, service=service, field=item_field, **kwargs)
         elif item_field in ['playlists', 'stremixes']:
-            playlist.add_mix(username=username, service=service, **kwargs)
+            mixify.add_mix(username=username, service=service, **kwargs)
     # to stremix - loop, skip, stremix, pause
     elif field == 'stremixes':
         pass
 
 
-def remove(field, username, service, name, position, users={}, path='.'):
+def remove(username, service, field, name, position, users={}, path='.'):
     # from playlist - item_position
     if field == 'playlists':
-        playlist.delete_item(username=username, service=service, name=name, 
+        mixify.delete_item(username=username, service=service, name=name, 
                              position=position, users=users, path=path)
     # from stremix - item_position
     elif field == 'stremixes':
@@ -74,21 +100,16 @@ def multiremove(username, service, field, name, positions, users, path):
     # from playlist, from stremix
     if field in ['playlists', 'stremixes']:
         for i,position in enumerate(sorted(positions)):
-            remove(field, username, service, name, 
+            remove(username, service, field, name, 
                    position=position-i, users=users, path=path)
     
 
-def play(username, service, field, device=None, users={}, path='.', **kwargs):
-    # loop, skip, playlist, stremix
+def play(username, service, field, **kwargs):
+    # loop, skip, mix, avoid
     if field in ['loops', 'skips']:
-        return loopify.play(username=username, service=service, field=field,
-                            device=device, users=users, path=path, **kwargs)
-    elif field == 'playlists':
-        return playlist.play(username=username, service=service, device=device, users=users, 
-                             path=path, **kwargs)
-    elif field == 'stremixes':
-        return stremix.play(username=username, service=service, device=device, users=users, 
-                            path=path, **kwargs)
+        return loopify.play(username=username, service=service, field=field, **kwargs)
+    elif field in ['playlists','stremixes']:
+        return mixify.play(username=username, service=service, field=field, **kwargs)
 
 
 def view(username, service, field, user={}, **kwargs):
@@ -98,7 +119,7 @@ def view(username, service, field, user={}, **kwargs):
     elif field in ['loops', 'skips']:
         loopify.view_loop(username=username, service=service, user=user, field=field, **kwargs)
     elif field == 'playlists':
-        playlist.view(username=username, service=service, user=user, **kwargs)
+        mixify.view(username=username, service=service, user=user, **kwargs)
     elif field == 'stremixes':
         pass
 
@@ -113,7 +134,7 @@ def edit(username, service, field, song_id, name, **kwargs):
 def move(username, service, field, **kwargs):
     # in playlist
     if field == 'playlists':
-        playlist.move_item(username=username, service=service, **kwargs)
+        mixify.move_item(username=username, service=service, **kwargs)
     # in stremix
     elif field == 'stremixes':
         pass
@@ -122,7 +143,7 @@ def move(username, service, field, **kwargs):
 def duplicate(username, service, field, **kwargs):
     # in playlist
     if field == 'playlists':
-        playlist.duplicate_item(username=username, service=service, **kwargs)
+        mixify.duplicate_item(username=username, service=service, **kwargs)
     # in stremix
     elif field == 'stremixes':
         pass
@@ -131,7 +152,7 @@ def duplicate(username, service, field, **kwargs):
 def change_reps(username, service, field, **kwargs):
     # in playlist
     if field == 'playlists':
-        playlist.change_reps(username=username, service=service, **kwargs)
+        mixify.change_reps(username=username, service=service, **kwargs)
     # in stremix
     elif field == 'stremixes':
         pass

@@ -6,7 +6,8 @@ Created on Fri Nov  1 17:18:52 2019
 
 API loopify
 """
-import src.api.utils.flamio as flamio
+import src.api.flamio as flamio
+import src.api.utils.search as search
 import time as t
 
 # =============================================================================
@@ -14,13 +15,13 @@ import time as t
 # =============================================================================
 
 def time_to_ms(time):
-    """ '0:00' to milisecond """
+    """ '0:00' to miliseconds """
     minute,seconds = map(float,time.split(':'))
     return int(1000*(minute*60 + seconds))
 
 
 def ms_to_time(ms):
-    """ milisecond to '0:00' """
+    """ miliseconds to '0:00' """
     ms = int(ms)
     minute,seconds = int(ms/60000), round((ms/1000)%60,3)
     return ':'.join(map(str,(minute,seconds)))
@@ -29,8 +30,8 @@ def ms_to_time(ms):
 def end_to_ms(username, 
               service, 
               song_id, 
-              users, 
-              path):
+              users={}, 
+              path='.'):
     # get w/ input and update if token expired
     player = flamio.get_player(username, service, users, path)
     if service == 'spotify':
@@ -50,22 +51,51 @@ def end_to_time(username,
     return ms_to_time(end_to_ms(username, service, song_id, users, path))
 
 
-def new_loop(username,
-             service,
-             song_id,
-             name=None,
-             start='0:00',
-             end=None,
-             field='loops',
-             users={},
-             path='.'):
+def merged_intervals(cut_array): 
+    m = [] 
+    s = max_val = -1
+    for a in sorted(cut_array, key = lambda x: x[0]):
+        if a[0] > max_val: 
+            if s > -1: 
+                m.append((s,max_val))
+            max_val = a[1] 
+            s = a[0] 
+        else: 
+            if a[1] >= max_val:
+                max_val = a[1] 
+    if max_val != -1 and (s, max_val) not in m: 
+        m.append((s, max_val))
+    return m
+
+
+def make_cutzone(user, song_id, skips, cuts):
+    always_cuts = [cut['times'] for cut in user['cut'][song_id].values() if cut['always']]
+    always_skips = [skip['cuts'] for skip in user['skip'][song_id].values() if skip['always']]
+    skip_cut_list = always_skips + [user['skip'][song_id][name]['cuts'] for name in skips]
+    cuts_from_skips = [user['cut'][song_id][name]['times'] for skip in skip_cut_list for name in skip]
+    cuts_from_names = [user['cut'][song_id][name]['times'] for name in cuts]
+    all_cuts = set(always_cuts + cuts_from_skips + cuts_from_names)
+    cuts_ms = [tuple(map(time_to_ms, cut_time.split('-'))) for cut_time in all_cuts]
+    return merged_intervals(cuts_ms)
+
+
+def new(username,
+        service,
+        field,
+        song_id,
+        name=None,
+        start='0:00',
+        end=None,
+        always_avoid=False,
+        users={},
+        path='.'):
     # update
     """ add loop or skip to saved options """
-    if not ((start == '0:00') and (not end) and (field == 'skips')):
-        users = users or flamio.get_users(path)
-        if username in users:
-            if service in users[username]:
-                user = users[username][service]
+    users = users or flamio.get_users(path)
+    if username in users:
+        if service in users[username]:
+            user = users[username][service]
+            if (start != '0:00') or end or (field != 'skip'):
                 end = end or end_to_time(username, service, song_id, users, path)
                 time_range = '-'.join([start,end])
                 name = name or time_range
@@ -75,33 +105,13 @@ def new_loop(username,
                 flamio.save(users,path)
 
 
-def new_skip(username,
-             service,
-             song_id,
-             name=None,
-             start='0:00',
-             end=None,
-             users={},
-             path='.'):
-    # update
-    return new_loop(username=username,
-                    service=service,
-                    song_id=song_id,
-                    name=name,
-                    start=start,
-                    end=end,
-                    field='skips',
-                    users=users,
-                    path=path)
-
-
-def delete_loop(username,
-                service,
-                song_id,
-                name,
-                field='loops',
-                users={},
-                path='.'):
+def delete(username,
+           service,
+           song_id,
+           name,
+           field='loop',
+           users={},
+           path='.'):
     # update
     users = users or flamio.get_users(path)
     if username in users:
@@ -113,31 +123,15 @@ def delete_loop(username,
                     flamio.save(users,path)
 
 
-def delete_skip(username,
-                service,
-                song_id,
-                name,
-                field='skips',
-                users={},
-                path='.'):
-    # delete
-    return delete_loop(username=username,
-                       service=service,
-                       song_id=song_id,
-                       name=name,
-                       field='skips',
-                       users=users,
-                       path=path)
-
-def edit_loop(username,
-              service,
-              song_id, 
-              name, 
-              new_start=None, 
-              new_end=None, 
-              field='loops',
-              users={},
-              path='.'):
+def edit(username,
+         service,
+         song_id, 
+         name, 
+         new_start=None, 
+         new_end=None, 
+         field='loop',
+         users={},
+         path='.'):
     # update
     """ edit existing loop or skip """
     if new_start or new_end:
@@ -154,44 +148,25 @@ def edit_loop(username,
                         user[field][song_id][name] = new_time
                         if ('-' in name) and (':' in name):
                             if all(map(lambda x: ':' in x, name.split('-'))):
-                                rename_loop(username, 
-                                            service, 
-                                            song_id, 
-                                            name, 
-                                            new_time, 
-                                            field, 
-                                            users, 
-                                            path)
+                                rename(username, 
+                                       service, 
+                                       song_id, 
+                                       name, 
+                                       new_time, 
+                                       field, 
+                                       users, 
+                                       path)
                                 return
                         flamio.save(users,path)
 
-def edit_skip(username,
-              service,
-              song_id, 
-              name, 
-              new_start=None, 
-              new_end=None, 
-              users={},
-              path='.'):
-    # update
-    return edit_loop(username=username,
-              service=service,
-              song_id=song_id, 
-              name=name, 
-              new_start=new_start, 
-              new_end=new_end, 
-              field='skips',
-              users=users,
-              path=path)
-        
 
-def view_loops(username,
-               service,
-               song_id=None, 
-               field='loops',
-               users={},
-               path='.',
-               user={}):
+def view(username,
+         service,
+         song_id=None, 
+         field='loop',
+         users={},
+         path='.',
+         user={}):
     # get w/ input and update if token expired
     """ view stored loops or skips, filtered by song and name """
     users = users or flamio.get_users(path)
@@ -210,28 +185,15 @@ def view_loops(username,
                         for name,trange in loops.items():
                             print(' -- '.join([song_id, song_name, name, trange]))
 
-def view_skips(username,
-               service,
-               song_id=None, 
-               users={},
-               path='.'):
-    # get w/ input
-    return view_loops(username=username,
-                      service=service,
-                      song_id=song_id, 
-                      field='skips',
-                      users=users,
-                      path=path)
 
-
-def rename_loop(username,
-                service,
-                song_id,
-                name,
-                new_name,
-                field='loops',
-                users={},
-                path='.'):
+def rename(username,
+           service,
+           song_id,
+           name,
+           new_name,
+           field='loop',
+           users={},
+           path='.'):
     # update
     users = users or flamio.get_users(path)
     if username in users:
@@ -240,43 +202,24 @@ def rename_loop(username,
             if song_id in user[field]:
                 if name in user[field][song_id]:
                     user[field][song_id][new_name] = user[field][song_id].pop(name)
-                    # rename in playlists and stremixes
-                    for playlist in user['playlists'].values():
-                        for item in playlist:
+                    # rename in mixes
+                    for mix in user['mix'].values():
+                        for item in mix:
                             if item['field'] == field:
                                 if item['song_id'] == song_id:
                                     if item['name'] == name:
                                         item['name'] = new_name
-                    for mix in user['stremixes'].values():
-                        pass
                     flamio.save(users,path)
-                    
-
-def rename_skip(username,
-                service,
-                song_id,
-                name,
-                new_name,
-                users={},
-                path='.'):
-    # update
-    return rename_loop(username=username,
-                       service=service,
-                       song_id=song_id,
-                       name=name,
-                       new_name=new_name,
-                       field='skips',
-                       users=users,
-                       path=path)
-
 
 def play(username,
          service,
-         song_id, 
-         name='FULLSONG', 
+         field,
+         song_id,
+         name='FULLSONG',
+         cuts=[],
+         skips=[],
          device=None, 
          reps=1,  
-         field='loops',
          repeat=False,
          checks=480,
          users={},
@@ -284,6 +227,7 @@ def play(username,
          start='0:0',
          end='0:0',
          buff=0,
+         switch_restart=False,
          pause_at_finish=False):
     # play and update if token expired
     """ play existing loop or skip """
@@ -293,12 +237,40 @@ def play(username,
             user = users[username][service]
             songSaved = song_id in user[field] and name in user[field][song_id]
             if songSaved or name == 'FULLSONG':
+                if name == 'FULLSONG':
+                    start_ms = time_to_ms(start)
+                    end_ms = time_to_ms(end) or end_to_ms(username, service, song_id, users, path)
+                else:
+                    times = user[field][song_id][name].split('-')
+                    start_ms,end_ms = map(time_to_ms, times)
+                cutzones = make_cutzone(user, song_id, skips, cuts)
+                song_name = search.track_name(username, service, song_id, users, path)
+                if name == 'FULLSONG':
+                    if any(not time_to_ms(time) for time in [start, end]):
+                        name = '{} - {} to {}'.format(field, start, ms_to_time(end_ms))
+                else:
+                    name = field+' - '+name
+                cuts = ', '.join(map(lambda x: '{} to {}'.format(*x), cutzones))
+                skip = ' skip: ' + cuts if cuts else ''
+                name += skip
+                
+                def get_player():
+                    return flamio.get_player(username,service,users,path)
+                
+                def inCut(progress_ms, cutzone):
+                    for cut in cutzones:
+                        if cut[0] <= progress_ms < cut[1]:
+                            return cut[1]
+                
+                print('playing: {} -- {}'.format(song_name,name))
+                
                 # spotify play boi
                 if service == 'spotify':
-                    include = field == 'loops'
+                    include = field == 'loop'
+                    
                     def inLoop(playback, t1, t2, include):
                         if playback:
-                            return (t1 < playback['progress_ms'] < t2) == include
+                            return (t1 <= playback['progress_ms'] < t2) == include
                         
                     def validPlayback(player, t1, t2, song_id, pauseKill, include):
                         playback = player.current_playback()
@@ -308,28 +280,12 @@ def play(username,
                                     if playback['is_playing'] or (not pauseKill and inLoop(playback,t1,t2,include)):
                                         return playback
                     
-                    def get_player():
-                        return flamio.get_player(username,service,users,path)
-                                    
-                    if name == 'FULLSONG':
-                        player = get_player()
-                        start_ms = time_to_ms(start)
-                        end_ms = time_to_ms(end) or player.track(song_id)['duration_ms']
-                    else:
-                        times = user[field][song_id][name].split('-')
-                        start_ms,end_ms = map(time_to_ms, times)
                     uri = ['https://open.spotify.com/track/'+song_id]
-                    if name == 'FULLSONG':
-                        if any(not time_to_ms(time) for time in [start, end]):
-                            name = '{} - {} to {}'.format(field[:-1], start, ms_to_time(end_ms))
-                    else:
-                        name = field[:-1]+' - '+name
                     player = get_player()
-                    print('playing: {} -- {}'.format(player.track(song_id)['name'],name))                
                     pb = player.current_playback()
                     if pb:
                         repeat = 'track' if repeat else pb['repeat_state']
-                        if (not pb['is_playing']) or (pb['item']['id'] != song_id):
+                        if (not pb['is_playing']) or (pb['item']['id'] != song_id) or switch_restart:
                             player.start_playback(device_id=device, uris=uri)
                     else:
                         player.start_playback(device_id=device, uris=uri)
@@ -344,14 +300,17 @@ def play(username,
                             player.seek_track(start_ms if include else end_ms)
                             if not player.current_playback()['is_playing']:
                                 player.start_playback()
-                        while inLoop(get_player().current_playback(), start_ms+buff, end_ms-buff, include):
+                        while inLoop(player.current_playback(), start_ms+buff, end_ms-buff, include):
                             t.sleep((end_ms-start_ms - 2*buff)/(1000*checks))
-                            if not validPlayback(get_player(), 
-                                                     start_ms, 
-                                                     end_ms, 
-                                                     song_id, 
-                                                     user['pauseKill'], 
-                                                     include):
+                            in_cut = inCut(player.current_playback()['progress_ms'], cutzones)
+                            if in_cut:
+                                player.seek_track(min(in_cut,end_ms))
+                            if not validPlayback(player, 
+                                                 start_ms, 
+                                                 end_ms, 
+                                                 song_id, 
+                                                 user['pauseKill'], 
+                                                 include):
                               break
                         pb = validPlayback(get_player(), 
                                            start_ms, 
@@ -376,34 +335,3 @@ def play(username,
                 # apple music play boi
                 elif service == 'apple_music':
                     pass
-
-# =============================================================================
-# def play_skip(username,
-#          service,
-#          song_id, 
-#          name='FULLSONG', 
-#          device=None, 
-#          reps=1,  
-#          repeat=False,
-#          checks=480,
-#          users={},
-#          path='.',
-#          start='0:0',
-#          end='0:0',
-#          buff=0):
-#     # play and update if token expired
-#     return play_loop(username=username,
-#                      service=service,
-#                      song_id=song_id, 
-#                      name=name, 
-#                      device=device, 
-#                      reps=reps,  
-#                      field='skips',
-#                      repeat=repeat,
-#                      checks=checks,
-#                      users=users,
-#                      path=path,
-#                      start=start,
-#                      end=end,
-#                      buff=buff)
-# =============================================================================

@@ -10,17 +10,16 @@ import sys
 sys.path.insert(1, os.path.realpath('../'))
 import spotipy_master.spotipy as spotipy
 import spotipy.util as util
-import src.api.utils.flamio as flamio
+import src.api.flamio as flamio
 # =============================================================================
 # import src.api as api
 # import src.api.utils.select as select
 # import src.api.utils.search as search
 # import src.api.loopify as loopify
-# import src.api.playlist as playlist
-# import src.api.stremix as stremix
+# import src.api.mixify as mixify
 # =============================================================================
-
-USERNAME = {'flamio':'jr', 'spotify':'12125880630', 'soundcloud':'', 'apple_music':''}
+#12125880630
+USERNAME = {'flamio':'jr', 'spotify':'nahommarie', 'soundcloud':'', 'apple_music':''}
 path='./test_data'
 
 
