@@ -16,18 +16,16 @@ import spotipy_master.spotipy.util as util
 # =============================================================================
 # Streaming Service App Global Variables
 # =============================================================================
-AUTHENICATORS = {
-                 'spotify':{
-                            'redirect_uri':'http://localhost:8888/lab',
-                            'client_id':'cd33a00276a645f393445c438115b958',
-                            'client_secret':'b9988db76d074442aa81a37312d12d29',
-                            'scope':'streaming \
-                                     user-read-playback-state \
-                                     user-modify-playback-state \
-                                     user-read-currently-playing'
+AUTHENICATORS = {'spotify':{'redirect_uri'  : 'http://localhost:8888/lab',
+                            'client_id'     : 'cd33a00276a645f393445c438115b958',
+                            'client_secret' : 'b9988db76d074442aa81a37312d12d29',
+                            'scope'         : 'streaming \
+                                               user-read-playback-state \
+                                               user-modify-playback-state \
+                                               user-read-currently-playing'
                            },
-                 'soundcloud':{},
-                 'apple_music':{}
+                 'soundcloud' : {},
+                 'apple_music': {}
                 }
 
 # =============================================================================
@@ -86,8 +84,7 @@ def new_user(username,
              path='.'):
     # update
     users = users or get_users(path)
-    users[username] = {
-                       'name':username, 
+    users[username] = {'name':username, 
                        'spotify':{}, 
                        'soundcloud':{}, 
                        'apple_music':{}
@@ -136,8 +133,7 @@ def add_service(service_un,
         if service and (username in users):
             token = get_token(service=service, s_username=service_un)
             if token:
-                users[username][service] = {
-                                            'flamio_name':username,
+                users[username][service] = {'flamio_name':username,
                                             'service':service,
                                             'pauseKill':True,
                                             'login_time':t.time(),
@@ -161,8 +157,7 @@ def new_user_and_service(username,
     # update
     users = users or get_users(path)
     if username not in users:
-        users[username] = {
-                           'name':username, 
+        users[username] = {'name':username, 
                            'spotify':{}, 
                            'soundcloud':{}, 
                            'apple_music':{}

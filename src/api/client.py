@@ -5,7 +5,7 @@ Created on Mon Dec  2 21:44:29 2019
 @author: justi
 """
 
-import time as t
+#import time as t
 import spotipy_master.spotipy as spotipy
 import spotipy_master.spotipy.util as util
 
@@ -45,6 +45,7 @@ def get_player(user):
             player.me()
             return player
         except:
+            print('refreshing token')
             token = get_token(user)
             user['token'] = token
             return spotipy.Spotify(auth=token)
