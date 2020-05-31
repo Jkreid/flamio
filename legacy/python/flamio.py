@@ -16,17 +16,19 @@ import spotipy_master.spotipy.util as util
 # =============================================================================
 # Streaming Service App Global Variables
 # =============================================================================
-AUTHENICATORS = {'spotify':{'redirect_uri'  : 'http://localhost:8888/lab',
-                            'client_id'     : 'cd33a00276a645f393445c438115b958',
-                            'client_secret' : 'b9988db76d074442aa81a37312d12d29',
-                            'scope'         : 'streaming \
-                                               user-read-playback-state \
-                                               user-modify-playback-state \
-                                               user-read-currently-playing'
-                           },
-                 'soundcloud' : {},
-                 'apple_music': {}
-                }
+AUTHS = {
+    'spotify':{
+        'redirect_uri'  : 'http://localhost:8888/lab',
+        'client_id'     : 'cd33a00276a645f393445c438115b958',
+        'client_secret' : 'b9988db76d074442aa81a37312d12d29',
+        'scope'         : 'streaming \
+                           user-read-playback-state \
+                               user-modify-playback-state \
+                                   user-read-currently-playing'
+    },
+    'soundcloud' : {},
+    'apple_music': {}
+}
 
 # =============================================================================
 # Functions
@@ -84,11 +86,12 @@ def new_user(username,
              path='.'):
     # update
     users = users or get_users(path)
-    users[username] = {'name':username, 
-                       'spotify':{}, 
-                       'soundcloud':{}, 
-                       'apple_music':{}
-                      }
+    users[username] = {
+        'name':username, 
+        'spotify':{}, 
+        'soundcloud':{}, 
+        'apple_music':{}
+    }
     save(users, path=path)
 
 
@@ -96,8 +99,7 @@ def get_token(service,
               s_username):
     # get w/ input
     if service == 'spotify':
-        token = util.prompt_for_user_token(username=s_username,
-                                                   **AUTHENICATORS[service])
+        token = util.prompt_for_user_token(username=s_username, **AUTHS[service])
     elif service == 'soundcloud':
         token = None
     elif service == 'apple_music':
@@ -143,7 +145,7 @@ def add_service(service_un,
                                             'loop':{},
                                             'cut':{},
                                             'skip':{},
-                                            'mix':{},
+                                            'mix':{}
                                            }
                 save(users=users, path=path)
             else:
