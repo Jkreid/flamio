@@ -93,7 +93,7 @@ def add_skip(username,
     # update
     return add_loop(username=username,
                     service=service,
-                    obj_field,
+                    obj_field=obj_field,
                     name=name,
                     song_id=song_id,
                     loop_name=loop_name,
@@ -134,6 +134,7 @@ def add_mix(username,
 
 def add_pause(username,
               service,
+              name,
               field,
               duration,
               position=None,
@@ -336,11 +337,13 @@ def unpack_nested(username, service, field, name, position, users={}, path='.'):
                         flamio.save(users,path)
 
 
-def zip_to_mix(uesrname, service, field, name, new_name=None, postition_1, position_2, users={}, path='.'):
-    first,last = sorted(map(int, (postition_1, position_2)))
-    new(username, service, field, new_name, users, path)
-    for item in mix[first_position-1:end_position]:
-        add_item(username, service, mix_name=new_name, users=users, path=path, **item)
+# =============================================================================
+# def zip_to_mix(uesrname, service, field, name, new_name, postition_1, position_2, users={}, path='.'):
+#     first,last = sorted(map(int, (postition_1, position_2)))
+#     new(username, service, field, new_name, users, path)
+#     for item in mix[first_position-1:end_position]:
+#         add_item(username, service, mix_name=new_name, users=users, path=path, **item)
+# =============================================================================
 
 
 def play(username,

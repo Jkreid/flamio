@@ -6,6 +6,7 @@ Created on Tue Dec 31 01:06:54 2019
 """
 
 from data import PATH
+import flamio
 
 def time_to_ms(time):
     """ '0:00' to miliseconds """

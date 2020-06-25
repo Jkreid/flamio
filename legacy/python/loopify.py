@@ -40,7 +40,7 @@ def end_to_ms(username,
         end_ms = 900000
     elif service == 'apple_music':
         end_ms = 900000
-    return ms_to_time(end_ms)
+    return end_ms
 
 
 def end_to_time(username, 
@@ -85,7 +85,7 @@ def new(username,
         song_id,
         name=None,
         start='0:00',
-        end=None,
+        end='',
         always_avoid=False,
         users={},
         path='.'):
@@ -335,3 +335,4 @@ def play(username,
                 # apple music play boi
                 elif service == 'apple_music':
                     pass
+                
