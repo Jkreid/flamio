@@ -1249,7 +1249,108 @@ def delete_skip_time(
 
 #// Mixes /////////////////////////////////////////////////////////////////////
 
-# TODO: Define mixes
+def new_mix(
+        username: str,
+        service: str,
+        name: str
+    ) -> None:
+    """
+    
+
+    Parameters
+    ----------
+    username : str
+        DESCRIPTION.
+    service : str
+        DESCRIPTION.
+    name : str
+        DESCRIPTION.
+
+    Returns
+    -------
+    None
+        DESCRIPTION.
+
+    """
+    data = {
+        'items':[]
+    }
+    new_item(
+        data,
+        username, service,
+        'mixes', name
+    )
+
+
+def get_mix(
+        username: str,
+        service: str,
+        name: str
+    ) -> dict:
+    """
+    
+
+    Parameters
+    ----------
+    username : str
+        DESCRIPTION.
+    service : str
+        DESCRIPTION.
+    name : str
+        DESCRIPTION.
+
+    Returns
+    -------
+    dict
+        DESCRIPTION.
+
+    """
+    return get_item(
+        username, service,
+        'mixes', name
+    )
+
+
+def delete_mix(
+        username: str,
+        service: str,
+        name: str
+    ) -> None:
+    """
+    
+
+    Parameters
+    ----------
+    username : str
+        DESCRIPTION.
+    service : str
+        DESCRIPTION.
+    name : str
+        DESCRIPTION.
+
+    Returns
+    -------
+    None
+        DESCRIPTION.
+
+    """
+    delete_item(
+        username, service,
+        'mixes', name
+    )
+
+# TODO: Define mix items
+
+def new_mix_item():
+    pass
+
+
+def get_mix_item():
+    pass
+
+
+def delete_mix_item():
+    pass
 
 #// Play Functions ////////////////////////////////////////////////////////////
 
