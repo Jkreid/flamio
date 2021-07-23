@@ -8,7 +8,7 @@ Created on Mon Jul 19 22:52:05 2021
 import os
 import json
 
-from user import User
+from user import User, flamio_method
 from player import SpotifyPlayer
 
 
@@ -43,6 +43,7 @@ class LocalUser(User):
     def aft_method(self):
         self.save()
     
+    @flamio_method
     def play_track(self, track_id, loop_names=[], skip_names=[], reps=1,
                    include_always=True, **kwargs):
         track_info = self.get_track_play_info(
@@ -53,9 +54,29 @@ class LocalUser(User):
         )
         self.player.play_track(track_id, track_info, track_reps=reps, **kwargs)
     
+    @flamio_method
     def play_mix(self, name, reps=1, include_always=True, **kwargs):
         mix_info = self.get_mix_play_info(name, include_always=include_always)
         self.player.play_mix(mix_info, mix_reps=reps, **kwargs)
     
+    @flamio_method
+    def add_loop_time(self, track_id, *args, start='', end='', **kwargs):
+        start = start or '0:00'
+        end = end or self.player.end_to_time(track_id)
+        flamio.add_loop_time(self.info, track_id, *args, end=end, **kwargs)
     
+    @flamio_method
+    def create_loop(self, track_id, *args, **kwargs):
+        if track_id not in self.info['tracks']:
+            self.create_track(track_id)
+        flamio.create_loop(self.info, *args, **kwargs)
+        
+    @flamio_method
+    def create_track(self, track_id, **kwargs):
+        flamio.create_track(self.info, track_id, **kwargs)
+        self.create_loop(track_id, '__FULL__')
+        self.add_loop_time(track_id, '__FULL__')
     
+    @flamio_method
+    def add_current_track(self):
+        self.create_track(self.player.current_track()['id'])

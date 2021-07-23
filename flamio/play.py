@@ -213,7 +213,7 @@ class Looper:
         self.playback = self.player.current_playback()
 
         for tr in range(track_reps):
-            for loop_reps, loop_info in track_loops_info: 
+            for loop_info, loop_reps in track_loops_info: 
                 for i in range(loop_reps):
                     for k, (start_ms, end_ms, reps) in enumerate(loop_info):
                         async with self.lock:
@@ -242,7 +242,8 @@ class Looper:
                                              or (tr < track_reps - 1)
                                              )
                             if not_last_loop or await_last_loop:
-                                print(f'loop sleeping for {duration} secs')
+                                if self.debug:
+                                    print(f'loop sleeping for {duration} secs')
                                 self.clock.start_clock(duration)
                                 await asyncio.ensure_future(
                                     self.clock.run(duration)

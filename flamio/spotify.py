@@ -14,8 +14,8 @@ DATA_PATH = '.'
 
 AUTH = {
     'redirect_uri'  : 'http://localhost:8888/lab',
-    'client_id'     : 'CLIENT_ID',
-    'client_secret' : 'CLIENT_SECRET',
+    'client_id'     : 'client_id',
+    'client_secret' : 'client_secret',
     'scope'         : 'streaming \
                        user-read-playback-state \
                            user-modify-playback-state \
@@ -111,11 +111,11 @@ def get_player(token):
 def token_checker(method):
     def player_method(player, *args, **kwargs):
         if not player._is_valid_token():
-            player._refresh_token(token=get_token(player.username))
+            player._refresh_token()
         try:
             value = method(player, *args, **kwargs)
         except spotipy.SpotifyException:
-            player._refresh_token(token=get_token(player.username))
+            player._refresh_token()
             value = method(player, *args, **kwargs)
         return value
     return player_method

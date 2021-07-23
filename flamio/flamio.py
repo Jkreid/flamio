@@ -80,9 +80,9 @@ def add(data, update, *path):
 
 #// Tracks ////////////////////////////////////////////////////////////////////
 
-def create_track(uinfo, track_id):
+def create_track(uinfo, track_id, track_info={}):
     data = {
-        'meta':{},
+        'meta':{'track_info':track_info},
         'loops':{},
         'skips':{},
         'tags':[],
@@ -313,6 +313,7 @@ def loop_rep_check(function):
     def loop_rep_safe_function(*args, loops=[], **kwargs):
         for i, loop in enumerate(loops):
             try:
+                assert not isinstance(loop, str)
                 iter(loop)
             except:
                 loops[i] = (loop, 1)
@@ -334,6 +335,7 @@ def add_mix_pause(uinfo, name, duration, index=0):
     add_mix_item(uinfo, name, data, index)
 
 def add_mix_mix(uinfo, name, mix_name, reps=1, index=0):
+    assert name != mix_name
     data = {
         'name':mix_name,
         'mix_reps':reps
@@ -406,8 +408,8 @@ def get_track_volume_info(uinfo, track_id, loop_names=[]):
 
 def get_track_play_info(uinfo, track_id, loop_names=[], skip_names=[],
                         include_always=True):
-    return (get_track_loop_infos(uinfo, track_id, loop_names),
-            skips_to_intervals(uinfo, track_id, skip_names,
+    return (get_track_loop_infos(uinfo, track_id, loops=loop_names),
+            skips_to_intervals(uinfo, track_id, skip_names=skip_names,
                                include_always=include_always),
             get_track_volume_info(uinfo, track_id, loop_names))
 

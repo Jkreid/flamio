@@ -127,11 +127,12 @@ class SpotifyPlayer(Player):
     def resume_playback(self, device=None):
         return spotify.resume_playback(self.player, device=device)
     
-    def pause(self, duration=0, device=None):
+    def pause(self, duration=0, device=None, resume=False):
         self.pause_playback(device)
         if duration >= 0:
             t.sleep(duration)
-            self.resume_playback(device)
+            if resume:
+                self.resume_playback(device)
     
     @spotify.token_checker
     def seek_track(self, position_ms):
