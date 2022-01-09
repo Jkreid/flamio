@@ -23,9 +23,9 @@ class User(ABC):
     
     #// User Methods //////////////////////////////////////////////////////////
     
-    def __init__(self, username, *args, info={}, **kwargs):
+    def __init__(self, username, *args, info=None, **kwargs):
         self.username = username
-        self.info = info
+        self.info = info or {'meta':{}, 'tracks':{}, 'mixes':{}, 'tags':{}}
         super().__init__()
     
     @abstractmethod
@@ -55,6 +55,9 @@ class User(ABC):
         self._info = info
     
     #// Flamio Methods ////////////////////////////////////////////////////////
+
+    def _update_authorization(self, token_info):
+        self._info['meta']['token_info'] = token_info
     
     @flamio_method
     def create_track(self, *args, **kwargs):

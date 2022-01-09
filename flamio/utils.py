@@ -5,7 +5,10 @@ Created on Tue Jul 13 20:31:00 2021
 @author: justi
 """
 
+import requests
 import functools
+import secrets
+import string
 
 #### algorithms
 
@@ -25,7 +28,20 @@ def merged_intervals(unmerged):
         union_set, sorted(unmerged, key=lambda x: x[0])
     )
 
+def gen_random_string(n=13):
+    return ''.join(secrets.choice(string.ascii_lowercase + string.digits)for i in range(n))
+
 #### data format converters
+
+class QueryParams(dict):
+    def stringify(self):
+        return functools.reduce(
+            lambda x, y: f'{x}&{y}',
+            map(lambda x: f'{x[0]}={x[1]}', self.items())
+        )
+
+def get_url_with_query_params(url, data):
+    return f'{url}?{QueryParams(data).stringify()}'
 
 def time_to_ms(time):
     assert ':' in time
@@ -44,3 +60,108 @@ def times_to_intervals(times):
         [list(map(lambda x: time_to_ms(time[x]), ('start', 'end')))
          for time in times]
     )
+
+def get_session():
+    return requests.Session()
+
+def raise_response_error(response):
+    msg = response.content.decode
+    if 'error' in msg:
+        raise Exception(msg)
+    raise ValueError(
+        f'response status code is {response.status_code} because of {response.reason}'
+    )
+
+def req(function):
+    def error_catcher(rc, *args, **kwargs):
+        resp = function(rc, *args, timeout=rc.timeout, **kwargs)
+        if 199 < resp.status_code < 230:
+            return resp
+        else:
+            raise_response_error(resp)
+    return error_catcher
+
+class RequestClient:
+    
+    def __init__(self, sess=None, url=None, max_retries=None, timeout=None):
+        self.session = sess or get_session()
+        self.timeout = timeout
+        if url and max_retries:
+            self.mount_max_retries(url, max_retries)
+        
+    @property
+    def session(self):
+        return self._session
+    
+    @session.setter
+    def session(self, sess):
+        self._session = sess
+    
+    def mount_max_retries(self, url, max_retries):
+        self.session.mount(
+            url,
+            requests.adapters.HTTPAdapter(max_retries=max_retries)
+        )
+        
+    def update_headers(self, headers):
+        self.session.headers.update(headers)
+    
+    @req
+    def get(self, url, **kwargs):
+        return self.session.get(url, **kwargs)
+    
+    @req
+    def put(self, url, **kwargs):
+        return self.session.put(url, **kwargs)
+    
+    @req
+    def post(self, url, **kwargs):
+        return self.session.post(url, **kwargs)
+    
+    @req
+    def delete(self, url, **kwargs):
+        return self.session.delete(url, **kwargs)
+
+
+
+async def async_req(coroutine):
+    async def async_error_catcher(rc, *args, **kwargs):
+        async with coroutine(rc, *args, timeout=rc.timeout, **kwargs) as resp:
+            if 199 < resp.status_code < 230:
+                return resp
+            else:
+                raise ValueError(f'Request returned code: {resp.status_code}') 
+    return async_error_catcher
+
+class AsyncRequestClient:
+
+    def __init__(self, sess, timeout=None):
+        self.session = sess
+        self.timeout = timeout
+    
+    @property
+    def session(self):
+        return self._session
+    
+    @session.setter
+    def session(self, sess):
+        self._session = sess
+    
+    def update_headers(self, headers):
+        self.session.headers.update(headers)
+    
+    @async_req
+    async def get(self, url, **kwargs):
+        return await self.session.get(url, **kwargs)
+    
+    @async_req
+    async def put(self, url, **kwargs):
+        return await self.session.put(url, **kwargs)
+    
+    @async_req
+    async def post(self, url, **kwargs):
+        return await self.session.post(url, **kwargs)
+    
+    @async_req
+    async def delete(self, url, **kwargs):
+        return await self.session.delete(url, **kwargs)

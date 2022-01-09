@@ -130,3 +130,6 @@ dmypy.json
 **checkpoint**
 **.pyc
 **cache**
+
+# VS Code
+**.vscode**
