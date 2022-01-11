@@ -65,7 +65,7 @@ def get_session():
     return requests.Session()
 
 def raise_response_error(response):
-    msg = response.content.decode
+    msg = response.content.decode()
     if 'error' in msg:
         raise Exception(msg)
     raise ValueError(
@@ -124,7 +124,7 @@ class RequestClient:
 
 
 
-async def async_req(coroutine):
+def async_req(coroutine):
     async def async_error_catcher(rc, *args, **kwargs):
         async with coroutine(rc, *args, timeout=rc.timeout, **kwargs) as resp:
             if 199 < resp.status_code < 230:

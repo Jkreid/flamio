@@ -152,7 +152,7 @@ class Looper:
 
     @checker
     async def set_playback_aiohttp(self, new_player):
-        playback = await asyncio.ensure_future(new_player.current_playback())
+        playback = await new_player.current_playback()
         async with self.lock:
             self._set_playback(playback)
 

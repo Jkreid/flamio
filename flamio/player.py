@@ -7,14 +7,22 @@ Created on Sat Jul 17 11:31:40 2021
 import utils
 import play
 import spotify
-import time as t
+import asyncio
+import time
 
-from abc import ABC, abstractmethod
 
-class Player(ABC):
+class Player:
     
-    def __init__(self, *args, **kwargs):
-        super().__init__()
+    def __init__(self, code=None, refresh_token=None, session=None, is_async=False):
+        if session and is_async:
+            self.client = spotify.AsyncSpotifyAuthClient.create(
+                session, code=code, refresh_token=refresh_token
+            )
+        else:
+            self.client = spotify.SpotifyAuthClient(
+            code=code, refresh_token=refresh_token
+        )
+        
     
     def play_track(self, *args, **kwargs):
         return play.play_track(self, *args, **kwargs)
@@ -37,122 +45,77 @@ class Player(ABC):
     
     def play_mix(self, *args, **kwargs):
         return play.play_mix(self, *args, **kwargs)
-    
-    @property
-    @abstractmethod
-    def username(self):
-        pass
-    
-    @abstractmethod
+
     def current_playback(self):
-        pass
+        return spotify.current_playback(self.client)
     
-    @abstractmethod
-    def start_playback(self):
-        pass
+    def start_playback(self, track_id, device=None, position_ms=0):
+        return spotify.start_playback(self.client, track_id, device=device, position_ms=position_ms)
     
-    @abstractmethod
-    def pause_playback(self):
-        pass
-    
-    @abstractmethod
-    def resume_playback(self):
-        pass
-    
-    @abstractmethod
-    def pause(self):
-        pass
-    
-    @abstractmethod
-    def seek_track(self):
-        pass
-    
-    @abstractmethod
-    def current_track(self):
-        pass
-    
-    @abstractmethod
-    def devices(self):
-        pass
-    
-    @abstractmethod
-    def current_device(self):
-        pass
-
-
-class SpotifyPlayer(Player):
-    
-    def __init__(self, username, refresh_time=0, token=None):
-        super().__init__()
-        self.username = username
-        self.token = token
-        self._refresh_time = refresh_time
-        self._refresh_token()
-    
-    @property
-    def username(self):
-        return self._username
-    
-    @username.setter
-    def username(self, name):
-        self._username = name
-    
-    def _is_valid_token(self):
-        return t.time() - self._refresh_time < spotify.tokenLifetime
-    
-    def _set_refresh_time(self, refresh_time):
-        self._refresh_time = refresh_time
-
-    def _refresh_token(self):
-        old_token = self.token
-        new_time = t.time()
-        self.token = spotify.get_token(self.username)
-        self.player = spotify.get_player(self.token)
-        if (old_token != self.token) and self._refresh_time:
-            self._refresh_time = new_time
-
-    @spotify.token_checker
-    def current_playback(self):
-        return spotify.current_playback(self.player)
-    
-    @spotify.token_checker
-    def start_playback(self, track_id, device=None):
-        return spotify.start_playback(self.player, track_id, device=device)
-    
-    @spotify.token_checker
     def pause_playback(self, device=None):
-        return spotify.pause_playback(self.player, device=device)
+        return spotify.pause_playback(self.client, device=device)
     
-    @spotify.token_checker
     def resume_playback(self, device=None):
-        return spotify.resume_playback(self.player, device=device)
+        return spotify.resume_playback(self.client, device=device)
     
     def pause(self, duration=0, device=None, resume=False):
         self.pause_playback(device)
         if duration >= 0:
-            t.sleep(duration)
+            time.sleep(duration)
             if resume:
                 self.resume_playback(device)
     
-    @spotify.token_checker
     def seek_track(self, position_ms):
-        return spotify.seek_track(self.player, position_ms)
+        return spotify.seek_track(self.client, position_ms)
     
-    @spotify.token_checker
     def current_track(self):
-        return spotify.get_current_track(self.player)
+        return spotify.get_current_track(self.client)
     
-    @spotify.token_checker
     def devices(self):
-        return spotify.get_devices(self.player)
+        return spotify.get_devices(self.client)
     
-    @spotify.token_checker
     def current_device(self):
-        return spotify.get_current_device(self.player)
+        return spotify.get_current_device(self.client)
 
-    @spotify.token_checker
     def end_to_ms(self, track_id):
-        return spotify.end_to_ms(self.player, track_id)
+        return spotify.end_to_ms(self.client, track_id)
 
     def end_to_time(self, track_id):
         return utils.ms_to_time(self.end_to_ms(track_id))
+    
+    async def async_current_playback(self):
+        return await spotify.async_current_playback(self.client)
+    
+    async def async_start_playback(self, track_id, device=None, position_ms=0):
+        return await spotify.async_start_playback(self.client, track_id, device=device, position_ms=position_ms)
+    
+    async def async_pause_playback(self, device=None):
+        return await spotify.async_pause_playback(self.client, device=device)
+    
+    async def async_resume_playback(self, device=None):
+        return await spotify.async_resume_playback(self.client, device=device)
+    
+    async def async_pause(self, duration=0, device=None, resume=False):
+        await self.async_pause_playback(device)
+        if duration >= 0:
+            await asyncio.sleep(duration)
+            if resume:
+                await self.async_resume_playback(device)
+    
+    async def async_seek_track(self, position_ms):
+        return await spotify.async_seek_track(self.client, position_ms)
+    
+    async def async_current_track(self):
+        return await spotify.async_get_current_track(self.client)
+    
+    async def async_devices(self):
+        return await spotify.async_get_devices(self.client)
+    
+    async def async_current_device(self):
+        return await spotify.async_get_current_device(self.client)
+
+    async def async_end_to_ms(self, track_id):
+        return await spotify.async_end_to_ms(self.client, track_id)
+
+    async def async_end_to_time(self, track_id):
+        return utils.ms_to_time(await self.async_end_to_ms(track_id))

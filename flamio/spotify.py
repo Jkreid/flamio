@@ -39,10 +39,13 @@ def endpoint_request(function):
     def endpoint_requestor(client, endpoint, **kwargs):
         if not client.is_valid_token():
             client.reset_token()
-        return function(
-            client, f'{client.endpoint_url}/{endpoint}',
+        res = function(
+            client,
+            f'{client.endpoint_url}/{endpoint}',
             **kwargs
-        ).json()
+        )
+        if res.status_code != 204:
+            return res.json()
     return endpoint_requestor
 
 class BaseSpotifyClient:
@@ -183,16 +186,6 @@ class SpotifyAuthClient(SpotifyClient):
         else:
             raise ValueError('Cannont get access token without auth code or refresh token')
 
-    def get_token_from_code(self, code):
-        self.code = code
-        self.token_request(self.get_auth_request_data())
-        return self.auth_token
-    
-    def get_token_from_refresh_token(self, refresh_token):
-        self.refresh_token = refresh_token
-        self.token_request(self.get_refresh_request_data())
-        return self.auth_token
-
 def get_track(client: SpotifyClient, track_id: str):
     return client.get(f'tracks/{track_id}')
 
@@ -203,25 +196,19 @@ def get_current_track(client):
     return client.get('me/player/currently-playing')
 
 def get_current_track_id(client):
-    return get_current_track(client)['id']
+    return get_current_track(client)['item']['id']
 
 def current_playback(client):
     return client.get('me/player')
 
-def seek_track(client, position_ms, device=None):
-    client.put(
-        '/me/player/seek',
-        data={
-            'position_ms': position_ms,
-            'device_id': device
-        }
-    )
+def seek_track(client, position_ms):
+    client.put(f'me/player/seek?position_ms={position_ms}')
 
-def pause_playback(client, device=None):
-    client.put('/me/player/pause', data={'device_id': device})
+def pause_playback(client, device=''):
+    client.put('me/player/pause', data={'device_id': device})
 
 def get_devices(client):
-    return client.get('/me/player/devices')['devices']
+    return client.get('me/player/devices')['devices']
 
 def get_current_device(client):
     playback = current_playback(client)
@@ -230,18 +217,18 @@ def get_current_device(client):
         return device
     return {}
 
-def start_playback(client, track_id, device=None, position_ms=0):
+def start_playback(client, track_id, device='', position_ms=0):
     client.put(
         'me/player/play',
-        data={
+        json={
             'device_id': device,
-            'context_uri': f'spotify:track:{track_id}',
+            'uris': [f'spotify:track:{track_id}'],
             'position_ms': position_ms
         }
     )
 
-def resume_playback(client, device=None):
-    client.put('me/player/play', data={'device_id': device})
+def resume_playback(client, device=''):
+    client.put('me/player/play', json={'device_id': device})
 
 #// Async Client Classes & Functions ///////////////////////////////////////////
 
@@ -250,10 +237,13 @@ def async_endpoint_request(coroutine):
     async def endpoint_requestor(client, path, **kwargs):
         if not client.is_valid_token():
             await client.reset_token()
-        return await (await coroutine(
-            client, f'{client.endpoint_url}/{path}',
-            **kwargs)
-        ).json()
+        res = await coroutine(
+            client,
+            f'{client.endpoint_url}/{path}',
+            **kwargs
+        )
+        if res.status_code != 204:
+            return await res.json()
     return endpoint_requestor
 
 class AsyncSpotifyClient(BaseSpotifyClient):
@@ -337,16 +327,6 @@ class AsyncSpotifyAuthClient(AsyncSpotifyClient):
         else:
             raise ValueError('Cannont get access token without auth code or refresh token')
 
-    async def get_token_from_code(self, code):
-        self.code = code
-        await self.token_request(self.get_auth_request_data())
-        return self.auth_token
-    
-    async def get_token_from_refresh_token(self, refresh_token):
-        self.refresh_token = refresh_token
-        await self.token_request(self.get_refresh_request_data())
-        return self.auth_token
-
 async def async_get_track(client: AsyncSpotifyClient, track_id: str):
     return await get_track(client, track_id)
 
@@ -359,23 +339,23 @@ async def async_get_current_track(client):
 async def async_get_current_track_id(client):
     return await get_current_track_id(client)
 
-async def current_playback(client):
+async def async_current_playback(client):
     return await current_playback(client)
 
-async def seek_track(client, position_ms, device=None):
+async def async_seek_track(client, position_ms, device=None):
     return await seek_track(client, position_ms, device=device)
 
-async def pause_playback(client, device=None):
+async def async_pause_playback(client, device=None):
     await pause_playback(client, device=device)
 
-async def get_devices(client):
+async def async_get_devices(client):
     return await get_devices(client)
 
-async def get_current_device(client):
+async def async_get_current_device(client):
     return await get_current_device(client)
 
-async def start_playback(client, track_id, device=None, position_ms=0):
+async def async_start_playback(client, track_id, device=None, position_ms=0):
     await start_playback(client, track_id, device=device, position_ms=position_ms)
 
-async def resume_playback(client, device=None):
+async def async_resume_playback(client, device=None):
     await resume_playback(client, device=device)
