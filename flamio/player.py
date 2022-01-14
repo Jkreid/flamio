@@ -4,28 +4,36 @@ Created on Sat Jul 17 11:31:40 2021
 
 @author: justi
 """
-import utils
-import play
-import spotify
+import flamio.utils as utils
+import flamio.play as play
+import flamio.spotify as spotify
 import asyncio
 import time
 
 
 class Player:
     
-    def __init__(self, code=None, refresh_token=None, session=None, is_async=False):
-        if session and is_async:
-            self.client = spotify.AsyncSpotifyAuthClient.create(
-                session, code=code, refresh_token=refresh_token
-            )
-        else:
-            self.client = spotify.SpotifyAuthClient(
-            code=code, refresh_token=refresh_token
+    def __init__(self, client: spotify.AsyncSpotifyAuthClient, code=None, refresh_token=None, session=None):
+        
+        self.client = client
+        
+        # self.client = spotify.SpotifyAuthClient(
+        #     code=code, refresh_token=refresh_token, session=session
+        # )
+        # self.code = code
+        # self.refresh_token = refresh_token
+    
+    async def make_async_client(self, session):
+        self.client = await spotify.AsyncSpotifyAuthClient.create(
+            session, code=self.code, refresh_token=self.refresh_token
         )
         
     
     def play_track(self, *args, **kwargs):
         return play.play_track(self, *args, **kwargs)
+
+    async def async_play_track(self, *args, **kwargs):
+        return await play.async_play_track(self, *args, **kwargs)
     
     def play_item(self, *args, 
                   killOnPause=False, 

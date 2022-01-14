@@ -74,11 +74,12 @@ def raise_response_error(response):
 
 def req(function):
     def error_catcher(rc, *args, **kwargs):
-        resp = function(rc, *args, timeout=rc.timeout, **kwargs)
-        if 199 < resp.status_code < 230:
-            return resp
+        res = function(rc, *args, timeout=rc.timeout, **kwargs)
+        if 199 < res.status_code < 230:
+            if res.status_code != 204:
+                return res.json()
         else:
-            raise_response_error(resp)
+            raise_response_error(res)
     return error_catcher
 
 class RequestClient:
@@ -126,42 +127,35 @@ class RequestClient:
 
 def async_req(coroutine):
     async def async_error_catcher(rc, *args, **kwargs):
-        async with coroutine(rc, *args, timeout=rc.timeout, **kwargs) as resp:
-            if 199 < resp.status_code < 230:
-                return resp
+        async with await coroutine(rc, *args, timeout=rc.timeout, headers=rc.headers, **kwargs) as resp:
+            if 199 < resp.status < 230:
+                if resp.status != 204:
+                    return await resp.json()
             else:
-                raise ValueError(f'Request returned code: {resp.status_code}') 
+                raise ValueError(f'Request returned code: {resp.status}') 
     return async_error_catcher
 
 class AsyncRequestClient:
 
-    def __init__(self, sess, timeout=None):
-        self.session = sess
+    def __init__(self, timeout=None):
         self.timeout = timeout
-    
-    @property
-    def session(self):
-        return self._session
-    
-    @session.setter
-    def session(self, sess):
-        self._session = sess
+        self.headers = {}
     
     def update_headers(self, headers):
-        self.session.headers.update(headers)
+        self.headers.update(headers)
     
     @async_req
-    async def get(self, url, **kwargs):
-        return await self.session.get(url, **kwargs)
+    async def get(self, session, url, **kwargs):
+        return await session.get(url, **kwargs)
     
     @async_req
-    async def put(self, url, **kwargs):
-        return await self.session.put(url, **kwargs)
+    async def put(self, session, url, **kwargs):
+        return await session.put(url, **kwargs)
     
     @async_req
-    async def post(self, url, **kwargs):
-        return await self.session.post(url, **kwargs)
+    async def post(self, session, url, **kwargs):
+        return await session.post(url, **kwargs)
     
     @async_req
-    async def delete(self, url, **kwargs):
-        return await self.session.delete(url, **kwargs)
+    async def delete(self, session, url, **kwargs):
+        return await session.delete(url, **kwargs)

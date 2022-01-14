@@ -7,21 +7,24 @@ Created on Mon Jul 19 22:52:05 2021
 
 import os
 import json
+
+import aiohttp
 import flamio
 
-from user import User, flamio_method
-from player import SpotifyPlayer
+from user import User, flamio_method, async_flamio_method
+from player import Player
 
 
 class LocalUser(User):
     
     DATA_PATH = '.'
     
-    def __init__(self, username, *args, player=None, **kwargs):
+    def __init__(self, username, *args, player=None, refresh_token=None, **kwargs):
         super().__init__(username, *args, **kwargs)
-        # self.load()
-        # SpotifyPlayer(username, token_info=self.get_token_info() or None)
-        self.player = player or SpotifyPlayer(username)
+        self.load()
+        if not refresh_token and 'refresh_token' in self.info['meta']:
+            refresh_token = self.info['meta']['refresh_token']
+        self.player = player or Player(refresh_token=refresh_token)
     
     def save(self):
         if not os.path.exists(self.DATA_PATH):
@@ -42,13 +45,32 @@ class LocalUser(User):
         self.load()
     
     def aft_method(self):
-        # if self.player.token_refreshed: self._update_authorization(self.player.token_info)
         self.save()
+    
+    async def async_player(self):
+        async with aiohttp.ClientSession(trust_env=True) as session:
+            await self.player.make_async_client(session)
+            print(await self.player.async_current_playback())
     
     @flamio_method
     def play_track(self, track_id, loop_names=[], skip_names=[], reps=1,
                    include_always=True, **kwargs):
         self.player.play_track(
+            track_id,
+            self.get_track_play_info(
+                track_id, 
+                loop_names=loop_names,
+                skip_names=skip_names, 
+                include_always=include_always
+            ),
+            track_reps=reps,
+            **kwargs
+        )
+    
+    @async_flamio_method
+    async def async_play_track(self, track_id, loop_names=[], skip_names=[], reps=1,
+                   include_always=True, **kwargs):
+        await self.player.async_play_track(
             track_id,
             self.get_track_play_info(
                 track_id, 

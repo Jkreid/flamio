@@ -10,59 +10,43 @@ import time as t
 
 class Timer:
 
-    def __init__(self, lock=None, debug=False):
-        self._start_time = 0
+    def __init__(self, debug=False):
         self._end_time = 0
-        self.lock = lock or asyncio.Lock()
+        self.broken = False
         self.debug = debug
 
-
     def start_clock(self, duration):
-        self._start_time = t.time()
-        self._end_time = self._start_time + duration
+        self._end_time = t.time() + duration
         self.duration = duration
-
+        self.broken = False
 
     @property
     def time_remaining(self):
         return self._end_time - t.time()
 
-
-    def isExpired(self, time_left):
-        return time_left <= 0
-
-
-    def isPreStart(self, time_left):
-        return round(time_left, 3) > self.duration
-
-
     def _outside_interval(self):
         time_left = self.time_remaining
-        return self.isExpired(time_left) or self.isPreStart(time_left)
+        return not (0 < round(time_left, 3) <= self.duration)
+    
+    def rewind(self, seconds):
+        self._end_time += seconds
 
-
-    async def outside_interval(self):
-        return self._outside_interval()
-
-
-    async def rewind(self, seconds):
-        async with self.lock:
-            self._end_time += seconds
-
-
-    async def run(self, duration):
-        while not await asyncio.ensure_future(self.outside_interval()):
+    async def run(self):
+        while not (self.broken or self._outside_interval()):
+            await asyncio.sleep(0)
             if self.debug:
                 print(self.time_remaining)
+        self.broken = True
         if self.debug:
             print('clock done')
 
 
 
 def checker(method):
-    async def checker_method(lm, *args, period=0, **kwargs):
+    async def checker_method(lm, *args, period=0, delay=2, **kwargs):
+        await asyncio.sleep(delay)
         while not lm.closed:
-            await asyncio.ensure_future(method(lm, *args, **kwargs))
+            method(lm, *args, **kwargs)
             await asyncio.sleep(period)
     return checker_method
 
@@ -88,22 +72,24 @@ class Looper:
         self.interval = (0, 0)
         self.device = None
         self.loop = loop or get_or_create_eventloop()
-        self.lock = lock or asyncio.Lock()
-        self.clock = clock or Timer(self.lock, debug=debug)
+        self.clock = clock or Timer(debug=debug)
         self.killOnPause = killOnPause
         self.debug = debug
+        self.valid_playback = False
 
 
     def loop_stop(self, *args):
         if self.debug:
             print('stoping loop')
         self.stop = True
+        self.clock.broken = True
+        self.closed = True
         return args
 
 
     @property
     def playing(self):
-        return self.playback['is_playing']
+        return ('is_playing' in self.playback) and self.playback['is_playing']
 
 
     @property
@@ -111,27 +97,29 @@ class Looper:
         return (self.playback['progress_ms'] + (int(
             1000*(t.time() - self.playback_time)
         ) if self.playing else 0)) if self.valid_playback else -1
+    
+    @property
+    def prog_in_interval(self):
+        s, e = self.interval
+        return s <= self.progress < e
 
 
     @checker
-    async def calibrate_clock(self):
+    def calibrate_clock(self):
         if self.debug:
             print('calibrating')
-        await asyncio.ensure_future(
-            self.clock.rewind(
-                (self.interval[1] - self.progress)/1000
-                - self.clock.time_remaining
-            )
+        self.clock.rewind(
+            (self.interval[1] - self.progress)/1000
+            - self.clock.time_remaining
         )
 
 
     @checker
-    async def status(self):
+    def status(self):
         if self.stop:
             if self.debug:
                 print('really stopping loop')
             self.closed = True
-            await asyncio.sleep(0)
             self.loop.stop()
 
 
@@ -142,23 +130,15 @@ class Looper:
 
 
     @checker
-    async def set_playback(self):
+    def set_playback(self):
         if self.debug:
             print('setting playing')
         playback = self.player.current_playback()
-        async with self.lock:
-            self._set_playback(playback)
+        self._set_playback(playback)
 
 
     @checker
-    async def set_playback_aiohttp(self, new_player):
-        playback = await new_player.current_playback()
-        async with self.lock:
-            self._set_playback(playback)
-
-
-    @checker
-    async def isValidTrack(self, track_id):
+    def isValidTrack(self, track_id):
         if self.valid_playback and self.playback['item']['id'] == track_id:
             if self.debug:
                 print('valid track check')
@@ -169,18 +149,18 @@ class Looper:
 
 
     @checker
-    async def isPlaying(self):
+    def isPlaying(self):
         if self.debug:
             print('pause check')
-        if not self.playback['is_playing']:
+        if not self.playing:
             if self.debug:
                 print('Paused')
             self.loop_stop()
 
 
     @checker
-    async def pausedOutsideLoop(self):
-        if not self.playback['is_playing']:
+    def pausedOutsideLoop(self):
+        if not self.playing:
             s, e = self.interval
             if not (s <= self.progress <= e):
                 if self.debug:
@@ -189,58 +169,48 @@ class Looper:
 
 
     @checker
-    async def inInterval(self):
+    def inInterval(self):
         if self.debug:
             print('interval check')
         s, e = self.interval
         prog = self.progress
-        if not (s <= prog <= e) and self.debug:
+        if not (s <= prog < e) and self.debug:
             print(f'Position {prog} out of Interval: {s}, {e}')
 
 
     @checker
-    async def skip(self, start, end):
+    def skip(self, start, end):
         if self.debug:
             print('skip check')
         if (start <= self.progress <= end):
             self.player.seek_track(end)
             self._set_playback(self.player.current_playback())
     
-    # async def play_interval(self):
-    #     duration = (self.interval[1] - self.interval[0]) / 1000
-    #     for r in range(reps):
-    #         if not (i or k or r or tr):
-    #             if not (
-    #                 self.playback
-    #                 and self.playback['is_playing']
-    #                 and track_id == self.playback['item']['id']
-    #                     ):
-    #                 self.player.start_playback(
-    #                     track_id, 
-    #                     device=self.device
-    #                 )
-    #         if start_ms or i or r or tr or k:
-    #             async with self.lock:
-    #                 self.player.seek_track(start_ms)
-    #                 self._set_playback(
-    #                     self.player.current_playback()
-    #                 )
-    #         not_last_loop = ((i < loop_reps - 1)
-    #                             or (k < len(loop_info) - 1)
-    #                             or (r < reps - 1)
-    #                             or (tr < track_reps - 1)
-    #                             )
-    #         if not_last_loop or await_last_loop:
-    #             if self.debug:
-    #                 print(f'loop sleeping for {duration} secs')
-    #             self.clock.start_clock(duration)
-    #             await asyncio.ensure_future(
-    #                 self.clock.run(duration)
-    #             )
+    async def play_interval(self, i , k, r, tr, track_id, start_ms, duration):
+        if not (i or k or r or tr):
+            if (self.playback and self.playing
+                and track_id == self.playback['item']['id']
+                ):
+                start, end = self.interval
+                if not (start <= self.progress < end):
+                    self.player.seek_track(start_ms)
+            else:
+                self.player.start_playback(
+                    track_id, 
+                    device=self.device,
+                    position_ms=start_ms
+                )
+        else:
+            self.player.seek_track(start_ms)
+        
+        self._set_playback(
+            self.player.current_playback()
+        )
+        self.clock.start_clock(duration)
+        await self.clock.run()
 
 
-    async def play(self, track_id, track_loops_info, track_reps,
-                   await_last_loop=True):
+    async def play(self, track_id, track_loops_info, track_reps, await_last_loop=False):
 
         self.playback = self.player.current_playback()
 
@@ -248,48 +218,31 @@ class Looper:
             for loop_info, loop_reps in track_loops_info: 
                 for i in range(loop_reps):
                     for k, (start_ms, end_ms, reps) in enumerate(loop_info):
-                        async with self.lock:
-                            self.interval = (start_ms, end_ms)
-                        
+                        self.interval = (start_ms, end_ms)
                         duration = (self.interval[1] - self.interval[0]) / 1000
                         for r in range(reps):
-                            if not (i or k or r or tr):
-                                if not (
-                                    self.playback
-                                    and self.playback['is_playing']
-                                    and track_id == self.playback['item']['id']
-                                        ):
-                                    self.player.start_playback(
-                                        track_id, 
-                                        device=self.device
-                                    )
-                            if start_ms or i or r or tr or k:
-                                async with self.lock:
-                                    self.player.seek_track(start_ms)
-                                    self._set_playback(
-                                        self.player.current_playback()
-                                    )
-                            not_last_loop = ((i < loop_reps - 1)
-                                             or (k < len(loop_info) - 1)
-                                             or (r < reps - 1)
-                                             or (tr < track_reps - 1)
-                                             )
-                            if not_last_loop or await_last_loop:
-                                if self.debug:
-                                    print(f'loop sleeping for {duration} secs')
-                                self.clock.start_clock(duration)
-                                await asyncio.ensure_future(
-                                    self.clock.run(duration)
-                                )
-        
+                            await self.play_interval(i , k, r, tr, track_id, start_ms, duration)
         if self.debug:
             print('end of loop')
         self.loop_stop()
 
+    async def async_play(self, track_id, track_loops_info, track_reps):
+        
+        self.playback = self.player.current_playback()
+
+        for tr in range(track_reps):
+            for loop_info, loop_reps in track_loops_info: 
+                for i in range(loop_reps):
+                    for k, (start_ms, end_ms, reps) in enumerate(loop_info):
+                        self.interval = (start_ms, end_ms)
+                        duration = (self.interval[1] - self.interval[0]) / 1000
+                        for r in range(reps):
+                            await self.play_interval(i , k, r, tr, track_id, start_ms, duration)
+        self.closed = True
 
     def run_loop(self):
         try:
-            asyncio.ensure_future(self.status())
+            self.loop.create_task(self.status())
             self.closed = False
             self.loop.run_forever()
         except KeyboardInterrupt:
@@ -301,22 +254,63 @@ class Looper:
     def play_loop(self, track_id, track_info, track_reps=1,
                   playback_period=1, await_last_loop=True):
         loop_info, skip_zones, _ = track_info
-        asyncio.ensure_future(self.play(
-            track_id, loop_info, track_reps, await_last_loop=await_last_loop
+        self.loop.create_task(self.play(
+            track_id, loop_info, track_reps
         ))
-        asyncio.ensure_future(
+        self.loop.create_task(
             self.set_playback(period=playback_period)
         )
+        self.loop.create_task(self.calibrate_clock())
         if self.killOnPause:
-            asyncio.ensure_future(self.isPlaying())
-        asyncio.ensure_future(self.calibrate_clock())
-        asyncio.ensure_future(self.inInterval())
+            self.loop.create_task(self.isPlaying())
+        if self.debug:
+            self.loop.create_task(self.inInterval())
         for start, end in skip_zones:
-            asyncio.ensure_future(self.skip(start, end))
-        asyncio.ensure_future(self.pausedOutsideLoop())
-        asyncio.ensure_future(self.isValidTrack(track_id))
+            self.loop.create_task(self.skip(start, end))
+        self.loop.create_task(self.pausedOutsideLoop())
+        self.loop.create_task(self.isValidTrack(track_id))
         self.run_loop()
+    
+    async def async_play_loop(self, track_id, track_info, track_reps=1,
+                  playback_period=1):
+        
+        loop_info, skip_zones, _ = track_info
+        
+        coros = []
+        coros.append(self.async_play(
+            track_id, loop_info, track_reps
+        ))
+        coros.append(
+            self.set_playback(period=playback_period)
+        )
+        coros.append(self.calibrate_clock())
+        coros.append(self.isValidTrack(track_id))
+        for start, end in skip_zones:
+            coros.append(self.skip(start, end))
+        
+        coros.append(self.pausedOutsideLoop())
 
+        if self.killOnPause:
+            coros.append(self.isPlaying())
+        if self.debug:
+            coros.append(self.inInterval())
+        
+        self.closed = False
+        await asyncio.wait(coros)
+        self.closed = True
+
+async def async_play_track(
+    player, track_id, track_info, track_reps=1, playback_period=1,
+    loop=None, lock=None, clock=None,
+    killOnPause=False, device=None, debug=False
+    ):
+    await Looper(
+        player, loop=loop, lock=lock, clock=clock, killOnPause=killOnPause,
+        device=device, debug=debug
+    ).async_play_loop(
+        track_id, track_info, track_reps=track_reps,
+        playback_period=playback_period
+    )
 
 def play_track(player, track_id, track_info, track_reps=1, playback_period=1, 
                await_last_loop=True, loop=None, lock=None, clock=None, 

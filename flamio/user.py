@@ -7,13 +7,21 @@ Created on Sat Jul 17 11:31:40 2021
 
 from abc import ABC, abstractmethod
 
-import flamio
+import flamio.flamio as flamio
 
 
 def flamio_method(method):
     def data_wrapped(user, *args, **kwargs):
         user.pre_method()
         value = method(user, *args, **kwargs)
+        user.aft_method()
+        return value
+    return data_wrapped
+
+def async_flamio_method(method):
+    async def data_wrapped(user, *args, **kwargs):
+        user.pre_method()
+        value = await method(user, *args, **kwargs)
         user.aft_method()
         return value
     return data_wrapped
@@ -55,9 +63,6 @@ class User(ABC):
         self._info = info
     
     #// Flamio Methods ////////////////////////////////////////////////////////
-
-    def _update_authorization(self, token_info):
-        self._info['meta']['token_info'] = token_info
     
     @flamio_method
     def create_track(self, *args, **kwargs):

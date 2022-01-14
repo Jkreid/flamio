@@ -5,7 +5,7 @@ Created on Tue Jul 13 00:45:49 2021
 @author: justi
 """
 
-import utils
+import flamio.utils as utils
 
 
 #// Path Functions ////////////////////////////////////////////////////////////
