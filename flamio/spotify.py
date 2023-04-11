@@ -4,7 +4,7 @@ Created on Tue Jul 13 23:59:45 2021
 
 @author: justi
 """
-
+import os
 import flamio.utils as utils
 import time as t
 #// Constants /////////////////////////////////////////////////////////////////
@@ -13,8 +13,8 @@ DATA_PATH = '.'
 
 AUTH = {
     'redirect_uri'  : 'http://localhost:8888/lab',
-    'client_id'     : 'cd33a00276a645f393445c438115b958',
-    'client_secret' : 'b9988db76d074442aa81a37312d12d29',
+    'client_id'     : os.getenv('SPOTIFY_CLIENT_ID'),
+    'client_secret' : os.getenv('SPOTIFY_SECRET_ID'),
     'scope'         : [
         'streaming',
         'user-read-playback-state',
@@ -66,8 +66,10 @@ class BaseSpotifyClient:
 
     def update_header_token(self):
         self.endpoint_client.update_headers(
-            {'Authorization': f'Bearer {self.auth_token}'}
+            {'Authorization': f'Bearer {self.auth_token}', 'Content-Type': 'application/json'}
         )
+        # print('HEADERS')
+        # print(self.endpoint_client.session.headers)
         self._token_refreshed = True
     
     @property
@@ -254,6 +256,7 @@ class AsyncSpotifyClient(BaseSpotifyClient):
         self.endp_timeout = 2
         self.endpoint_client = utils.AsyncRequestClient(
             timeout=self.endp_timeout,
+            
         )
         self.token_client = utils.AsyncRequestClient(
             timeout=self.auth_timeout,
@@ -267,6 +270,8 @@ class AsyncSpotifyClient(BaseSpotifyClient):
     
     async def token_request(self, session, request_data):
         call_time = t.time()
+        print('pre token requests')
+        print(request_data)
         self.parse_token_info(
             await self.token_client.post(
                 session,
@@ -275,6 +280,7 @@ class AsyncSpotifyClient(BaseSpotifyClient):
             ),
             call_time
         )
+        print('post token requests')
     
     async def reset_token(self, session):
         await self.token_request(session, self.get_cc_request_data())
@@ -304,15 +310,6 @@ class AsyncSpotifyAuthClient(AsyncSpotifyClient):
         self.refresh_token = refresh_token
         self.session = session
         super().__init__()
-    
-    @classmethod
-    async def create(cls, code=None, refresh_token=None):
-        self = AsyncSpotifyAuthClient(
-            code=code,
-            refresh_token=refresh_token
-        )
-        await self.reset_token()
-        return self
     
     def __aenter__(self):
         return self

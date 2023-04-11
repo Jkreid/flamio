@@ -33,15 +33,14 @@ def gen_random_string(n=13):
 
 #### data format converters
 
-class QueryParams(dict):
-    def stringify(self):
-        return functools.reduce(
-            lambda x, y: f'{x}&{y}',
-            map(lambda x: f'{x[0]}={x[1]}', self.items())
-        )
+def stringify_query_params(params: dict):
+    return functools.reduce(
+        lambda x, y: f'{x}&{y}',
+        map(lambda x: f'{x[0]}={x[1]}', params.items())
+    )
 
 def get_url_with_query_params(url, data):
-    return f'{url}?{QueryParams(data).stringify()}'
+    return f'{url}?{stringify_query_params(data)}'
 
 def time_to_ms(time):
     assert ':' in time
@@ -128,11 +127,11 @@ class RequestClient:
 def async_req(coroutine):
     async def async_error_catcher(rc, *args, **kwargs):
         async with await coroutine(rc, *args, timeout=rc.timeout, headers=rc.headers, **kwargs) as resp:
-            if 199 < resp.status < 230:
-                if resp.status != 204:
-                    return await resp.json()
-            else:
-                raise ValueError(f'Request returned code: {resp.status}') 
+            if not (199 < resp.status < 230):
+                raise ValueError(f'Request returned code: {resp.status} {resp.text}')
+            if resp.status == 204:
+                return
+            return await resp.json() 
     return async_error_catcher
 
 class AsyncRequestClient:
@@ -159,3 +158,25 @@ class AsyncRequestClient:
     @async_req
     async def delete(self, session, url, **kwargs):
         return await session.delete(url, **kwargs)
+
+
+# Redis helpers
+
+def hset_list(r, key, value, numbers):
+    r.hset(key, value, ','.join(numbers))
+
+def hset_bool(r, key, value, number):
+    r.hset(key, value, int(number))
+
+def hget_list(r, key, value, decoder=lambda x: x.decode()):
+    return list(map(decoder, r.hget(key, value).split(',')))
+
+def hget_int(r, key, value):
+    return int(r.hget(key, value))
+
+def hget_bool(r, key, value):
+    return bool(hget_int(r, key, value))
+
+def hget_str(r, key, value):
+    x = r.hget(key, value)
+    return x.decode() if x else x

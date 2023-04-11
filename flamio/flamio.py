@@ -287,14 +287,14 @@ def get_mix_item(uinfo, name, index):
 
 def edit_mix_item(uinfo, name, data, index):
     current = get_mix_item(uinfo, name, index)
-    if all(x in current for x in data.keys()):
+    if all(x in current for x in data):
         new_data = {x:y or current[x] for x,y in data.items()}
         edit(uinfo, new_data, 'mixes', name, 'items', index)
 
 def delete_mix_item(uinfo, name, index):
     delete(uinfo, 'mixes', name, 'items', index)
 
-def multidelete_mix_items(uinfo, track_id, name, positions):
+def multidelete_mix_items(uinfo, name, positions):
     multidelete(uinfo, positions, 'mixes', name, 'items')
 
 def duplicate_mix_item(uinfo, name, copy_position, paste_position):
@@ -418,7 +418,7 @@ def get_item_play_info(uinfo, item, include_always=True):
         return [(
             item['track_id'], 
             get_track_play_info(
-                uinfo, item['track_id'], item['loops'], item['loops'], 
+                uinfo, item['track_id'], item['loops'], item['skips'], 
                 include_always=include_always
             ), 
             item['track_reps']

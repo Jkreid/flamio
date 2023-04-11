@@ -7,8 +7,16 @@ Created on Tue Jul 13 20:31:15 2021
 import asyncio
 import time as t
 
+import uuid
+import flamio.utils as utils
+# import flamio.play as play
+import flamio.spotify as spotify
+# import asyncio
+# from flamio.player import Player
 
-class Timer:
+LAG_BUFFER = .2
+
+class Clock:
 
     def __init__(self, debug=False):
         self._end_time = 0
@@ -41,51 +49,153 @@ class Timer:
             print('clock done')
 
 
-
-def checker(method):
-    async def checker_method(lm, *args, period=0, delay=2, **kwargs):
-        await asyncio.sleep(delay)
-        while not lm.closed:
-            method(lm, *args, **kwargs)
-            await asyncio.sleep(period)
-    return checker_method
-
-
-def get_or_create_eventloop():
-    try:
-        return asyncio.get_event_loop()
-    except RuntimeError as e:
-        if "There is no current event loop in thread" in str(e):
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return asyncio.get_event_loop()
+def loopcheck(debug_msg):
+    def checker(method):
+        async def checker_method(looper, *args, period=0, delay=2, **kwargs):
+            await asyncio.sleep(delay)
+            while not looper.closed:
+                if looper.debug:
+                    print(debug_msg)
+                await method(looper, *args, **kwargs)
+                await asyncio.sleep(period)
+        return checker_method
+    return checker
 
 
-class Looper:
 
-    def __init__(self, player, loop=None, lock=None, clock=None, 
-                 killOnPause=False, device=None, debug=False):
+
+
+class Player:
+    
+    def __init__(
+        self, id: uuid.UUID, client: spotify.AsyncSpotifyAuthClient, looper=None,
+        playback_period=1,
+        killOnPause=False,
+        device='',
+        debug=False
+    ):
+        self.id = id
+        self.client = client
+        self.looper: Loop = looper or self.get_looper(
+            playback_period=playback_period,
+            killOnPause=killOnPause,
+            device=device,
+            debug=debug
+        )
+        self.playing = False
+    
+    def get_looper(self, playback_period=1, killOnPause=False, device='', debug=False):
+        return Loop(
+            self, 
+            playback_period=playback_period,
+            killOnPause=killOnPause,
+            device=device,
+            debug=debug
+        )
+
+    async def play_track(
+        self, track_id, track_info, track_reps=1, playback_period=1,
+        killOnPause=False, device='', debug=False
+    ):
+        self.playing = True
+        await self.looper.play(
+            track_id, track_info, track_reps=track_reps
+        )
+        self.playing = False
+    
+    async def _play_item(self, item):
+        if len(item) == 3:
+            track_id, track_info, track_reps = item
+            await self.looper.play(
+                track_id, track_info, track_reps=track_reps
+            )
+        elif len(item) == 1 and isinstance(item[0], (float, int)):
+            await self.pause(item[0])
+        else:
+            raise ValueError('Invalid object for playing')
+    
+    async def play_mix(
+        self, mix_info, mix_reps=1, playback_period=1,
+        killOnPause=False, device=None, debug=False
+    ):
+        self.playing = True
+        self.looper = Loop(
+            self, 
+            playback_period=playback_period, 
+            killOnPause=killOnPause, 
+            device=device, 
+            debug=debug
+        )
+        for _ in range(mix_reps):
+            for item in mix_info:
+                await self._play_item(item)
+        self.playing = False
+    
+    async def get_currently_playing(self):
+        return await spotify.async_get_currently_playing(self.client)
+    
+    async def get_current_track(self):
+        return await spotify.async_get_current_track(self.client)
+    
+    async def get_current_track_id(self):
+        return await spotify.async_get_current_track_id(self.client)
+
+    async def get_current_playback(self):
+        return await spotify.async_get_current_playback(self.client)
+    
+    async def start_playback(self, track_id, device='', position_ms=0):
+        return await spotify.async_start_playback(self.client, track_id, device=device, position_ms=position_ms)
+    
+    async def pause_playback(self, device=''):
+        return await spotify.async_pause_playback(self.client, device=device)
+    
+    async def resume_playback(self, device=''):
+        return await spotify.async_resume_playback(self.client, device=device)
+    
+    async def pause(self, duration=0, device='', resume=False):
+        await self.pause_playback(device)
+        if duration >= 0:
+            await asyncio.sleep(duration)
+            if resume:
+                await self.resume_playback(device)
+    
+    async def seek_track(self, position_ms):
+        return await spotify.async_seek_track(self.client, position_ms)
+    
+    async def get_devices(self):
+        return await spotify.async_get_devices(self.client)
+    
+    async def get_current_device(self):
+        return await spotify.async_get_current_device(self.client)
+
+    async def end_to_ms(self, track_id):
+        return await spotify.async_end_to_ms(self.client, track_id)
+
+    async def end_to_time(self, track_id):
+        return utils.ms_to_time(await self.end_to_ms(track_id))
+
+
+
+class Loop:
+
+    def __init__(self, player: Player, playback_period: float=1,
+                 killOnPause: bool=False, device: str='', debug: bool=False):
         self.player = player
-        self.stop = False
+        self.clock = Clock(debug=debug)
         self.closed = True
         self.playback = {}
+        self.playback_period = playback_period
+        self.delay = playback_period + LAG_BUFFER
         self.interval = (0, 0)
-        self.device = None
-        self.loop = loop or get_or_create_eventloop()
-        self.clock = clock or Timer(debug=debug)
+        self.device = device
         self.killOnPause = killOnPause
-        self.debug = debug
-        self.valid_playback = False
+        self.debug: bool = debug
 
-
-    def loop_stop(self, *args):
-        if self.debug:
-            print('stoping loop')
-        self.stop = True
+    def loop_stop(self, reason: str):
         self.clock.broken = True
         self.closed = True
-        return args
-
+        if self.debug:
+            print(f'stoping loop: {reason}')
 
     @property
     def playing(self):
@@ -102,89 +212,61 @@ class Looper:
     def prog_in_interval(self):
         s, e = self.interval
         return s <= self.progress < e
+    
+    @property
+    def playback(self):
+        return self._playback
+    
+    @playback.setter
+    def playback(self, value):
+        self._playback = value
+        self.playback_time = t.time()
+    
+    @property
+    def valid_playback(self):
+        return 'item' in self.playback
 
-
-    @checker
-    def calibrate_clock(self):
-        if self.debug:
-            print('calibrating')
+    @loopcheck('calibrating')
+    async def calibrate_clock(self):
         self.clock.rewind(
             (self.interval[1] - self.progress)/1000
             - self.clock.time_remaining
         )
 
+    @loopcheck('setting current playback')
+    async def set_playback(self):
+        self.playback = await self.player.get_currently_playing()
 
-    @checker
-    def status(self):
-        if self.stop:
-            if self.debug:
-                print('really stopping loop')
-            self.closed = True
-            self.loop.stop()
+    @loopcheck('valid track check')
+    async def isValidTrack(self, track_id):
+        playback_track_id = self.valid_playback and self.playback['item']['id']
+        if not (playback_track_id and playback_track_id == track_id):
+            self.loop_stop(f'invalid track {playback_track_id} not {track_id}')
 
-
-    def _set_playback(self, playback):
-        self.playback = playback
-        self.valid_playback = self.playback and self.playback['item']
-        self.playback_time = t.time()
-
-
-    @checker
-    def set_playback(self):
-        if self.debug:
-            print('setting playing')
-        playback = self.player.current_playback()
-        self._set_playback(playback)
-
-
-    @checker
-    def isValidTrack(self, track_id):
-        if self.valid_playback and self.playback['item']['id'] == track_id:
-            if self.debug:
-                print('valid track check')
-        else:
-            if self.debug:
-                print('invalid track check')
-            self.loop_stop()
-
-
-    @checker
-    def isPlaying(self):
-        if self.debug:
-            print('pause check')
+    @loopcheck('pause check')
+    async def isPlaying(self):
         if not self.playing:
-            if self.debug:
-                print('Paused')
-            self.loop_stop()
+            self.loop_stop('loop paused')
 
-
-    @checker
-    def pausedOutsideLoop(self):
+    @loopcheck('paused outside loop check')
+    async def pausedOutsideLoop(self):
         if not self.playing:
             s, e = self.interval
             if not (s <= self.progress <= e):
-                if self.debug:
-                    print('Paused Outside Loop')
-                self.loop_stop()
+                self.loop_stop('paused outside loop')
 
-
-    @checker
-    def inInterval(self):
-        if self.debug:
-            print('interval check')
+    @loopcheck('interval check')
+    async def inInterval(self):
         s, e = self.interval
         prog = self.progress
-        if not (s <= prog < e) and self.debug:
+        if not (s <= prog < e):
             print(f'Position {prog} out of Interval: {s}, {e}')
 
-
-    @checker
-    def skip(self, start, end):
-        if self.debug:
-            print('skip check')
+    @loopcheck('skip check')
+    async def skip(self, start, end):
         if (start <= self.progress <= end):
-            self.player.seek_track(end)
-            self._set_playback(self.player.current_playback())
+            await self.player.seek_track(end)
+            self.playback = await self.player.get_currently_playing()
     
     async def play_interval(self, i , k, r, tr, track_id, start_ms, duration):
         if not (i or k or r or tr):
@@ -193,27 +275,22 @@ class Looper:
                 ):
                 start, end = self.interval
                 if not (start <= self.progress < end):
-                    self.player.seek_track(start_ms)
+                    await self.player.seek_track(start_ms)
             else:
-                self.player.start_playback(
+                await self.player.start_playback(
                     track_id, 
                     device=self.device,
                     position_ms=start_ms
                 )
         else:
-            self.player.seek_track(start_ms)
+            await self.player.seek_track(start_ms)
         
-        self._set_playback(
-            self.player.current_playback()
-        )
+        self.playback = await self.player.get_currently_playing()
         self.clock.start_clock(duration)
         await self.clock.run()
 
-
-    async def play(self, track_id, track_loops_info, track_reps, await_last_loop=False):
-
-        self.playback = self.player.current_playback()
-
+    async def play_loop(self, track_id, track_loops_info, track_reps):
+        self.playback = await self.player.get_currently_playing()
         for tr in range(track_reps):
             for loop_info, loop_reps in track_loops_info: 
                 for i in range(loop_reps):
@@ -223,127 +300,29 @@ class Looper:
                         for r in range(reps):
                             await self.play_interval(i , k, r, tr, track_id, start_ms, duration)
         if self.debug:
-            print('end of loop')
-        self.loop_stop()
-
-    async def async_play(self, track_id, track_loops_info, track_reps):
-        
-        self.playback = self.player.current_playback()
-
-        for tr in range(track_reps):
-            for loop_info, loop_reps in track_loops_info: 
-                for i in range(loop_reps):
-                    for k, (start_ms, end_ms, reps) in enumerate(loop_info):
-                        self.interval = (start_ms, end_ms)
-                        duration = (self.interval[1] - self.interval[0]) / 1000
-                        for r in range(reps):
-                            await self.play_interval(i , k, r, tr, track_id, start_ms, duration)
+            print('end of play loop')
         self.closed = True
-
-    def run_loop(self):
-        try:
-            self.loop.create_task(self.status())
-            self.closed = False
-            self.loop.run_forever()
-        except KeyboardInterrupt:
-            pass
-        finally:
-            self.closed = True
-
-
-    def play_loop(self, track_id, track_info, track_reps=1,
-                  playback_period=1, await_last_loop=True):
-        loop_info, skip_zones, _ = track_info
-        self.loop.create_task(self.play(
-            track_id, loop_info, track_reps
-        ))
-        self.loop.create_task(
-            self.set_playback(period=playback_period)
-        )
-        self.loop.create_task(self.calibrate_clock())
-        if self.killOnPause:
-            self.loop.create_task(self.isPlaying())
-        if self.debug:
-            self.loop.create_task(self.inInterval())
-        for start, end in skip_zones:
-            self.loop.create_task(self.skip(start, end))
-        self.loop.create_task(self.pausedOutsideLoop())
-        self.loop.create_task(self.isValidTrack(track_id))
-        self.run_loop()
     
-    async def async_play_loop(self, track_id, track_info, track_reps=1,
-                  playback_period=1):
-        
+    async def play(self, track_id, track_info, track_reps=1):
         loop_info, skip_zones, _ = track_info
-        
         coros = []
-        coros.append(self.async_play(
+        coros.append(self.play_loop(
             track_id, loop_info, track_reps
         ))
         coros.append(
-            self.set_playback(period=playback_period)
+            self.set_playback(period=self.playback_period)
         )
-        coros.append(self.calibrate_clock())
-        coros.append(self.isValidTrack(track_id))
+        coros.append(self.calibrate_clock(delay=self.delay))
+        coros.append(self.isValidTrack(track_id, delay=self.delay))
         for start, end in skip_zones:
-            coros.append(self.skip(start, end))
+            coros.append(self.skip(start, end, delay=self.delay))
         
-        coros.append(self.pausedOutsideLoop())
-
+        coros.append(self.pausedOutsideLoop(delay=self.delay))
         if self.killOnPause:
-            coros.append(self.isPlaying())
+            coros.append(self.isPlaying(delay=self.delay))
         if self.debug:
-            coros.append(self.inInterval())
-        
+            coros.append(self.inInterval(delay=0))
         self.closed = False
         await asyncio.wait(coros)
         self.closed = True
-
-async def async_play_track(
-    player, track_id, track_info, track_reps=1, playback_period=1,
-    loop=None, lock=None, clock=None,
-    killOnPause=False, device=None, debug=False
-    ):
-    await Looper(
-        player, loop=loop, lock=lock, clock=clock, killOnPause=killOnPause,
-        device=device, debug=debug
-    ).async_play_loop(
-        track_id, track_info, track_reps=track_reps,
-        playback_period=playback_period
-    )
-
-def play_track(player, track_id, track_info, track_reps=1, playback_period=1, 
-               await_last_loop=True, loop=None, lock=None, clock=None, 
-               killOnPause=False, device=None, debug=False):
-    Looper(
-        player, loop=loop, lock=lock, clock=clock, killOnPause=killOnPause,
-        device=device, debug=debug
-    ).play_loop(
-        track_id, track_info, track_reps=track_reps,
-        playback_period=playback_period, await_last_loop=await_last_loop
-    )
-
-
-def play_item(looper, item, playback_period=1):
-    if len(item) == 3:
-        track_id, track_info, track_reps = item
-        looper.play_loop(
-            track_id, track_info, track_reps=track_reps,
-            playback_period=playback_period
-        )
-    elif len(item) == 1 and isinstance(item[0], (float, int)):
-        looper.player.pause(item[0])
-    else:
-        raise ValueError('Invalid object for playing')
-
-
-def play_mix(player, mix_info, mix_reps=1, playback_period=1, loop=None, 
-             lock=None, killOnPause=False, device=None, debug=False):
-    looper = Looper(
-        player, loop=loop, lock=lock, killOnPause=killOnPause, device=device, 
-        debug=debug
-    )
-    for _ in range(mix_reps):
-        for item in mix_info:
-            play_item(looper, item, playback_period=playback_period)
 

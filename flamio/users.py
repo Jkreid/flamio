@@ -9,22 +9,30 @@ import os
 import json
 
 import aiohttp
-import flamio
+import flamio.flamio as flamio
 
-from user import User, flamio_method, async_flamio_method
-from player import Player
+from flamio.user import User, flamio_method, async_flamio_method
+from flamio.play import Player
 
 
 class LocalUser(User):
     
     DATA_PATH = '.'
     
-    def __init__(self, username, *args, player=None, refresh_token=None, **kwargs):
+    def __init__(self, username, *args, player=None, refresh_token=None, load_player=False, load_data=True, **kwargs,):
         super().__init__(username, *args, **kwargs)
-        self.load()
+        if load_data:
+            self.load()
+        print(load_data)
+        self.refresh_token = refresh_token
+        print(self.refresh_token)
+        print(self.info)
         if not refresh_token and 'refresh_token' in self.info['meta']:
-            refresh_token = self.info['meta']['refresh_token']
-        self.player = player or Player(refresh_token=refresh_token)
+            print('found refresh')
+            self.refresh_token = self.info['meta']['refresh_token']
+            print(self.refresh_token)
+        if load_player:
+            self.player = player or Player(refresh_token=self.refresh_token)
     
     def save(self):
         if not os.path.exists(self.DATA_PATH):
@@ -36,7 +44,7 @@ class LocalUser(User):
     
     def load(self):
         if os.path.exists(self.DATA_PATH):
-            SAVE_PATH = self.DATA_PATH + f'/{self.username}.json'
+            SAVE_PATH = self.DATA_PATH + f'/flamio/{self.username}.json'
             if os.path.exists(SAVE_PATH):
                 with open(SAVE_PATH, 'r') as data:
                     self.info = json.load(data)
